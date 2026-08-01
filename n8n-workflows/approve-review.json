@@ -148,6 +148,66 @@
         -100,
         120
       ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "audit-trail",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "wh-audit",
+      "name": "Webhook audit-trail",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -900,
+        320
+      ],
+      "webhookId": "audit-trail"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select a.id, a.report_id, a.actor, a.action, a.diff, a.at, r.employee_id, r.status as report_status from audit_log a join reports r on r.id = a.report_id where ($1 = '__all__' or a.report_id::text = $1) order by a.at desc limit 100",
+        "options": {
+          "queryReplacement": "={{ $json.query?.report_id || '__all__' }}"
+        }
+      },
+      "id": "pg-audit",
+      "name": "Fetch audit rows",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -700,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "YVgSP5ue1kUxzfQH",
+          "name": "Supabase Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, entries: $input.all().map(i => i.json).filter(j => j.id !== undefined) }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-audit",
+      "name": "Respond audit",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -500,
+        320
+      ]
     }
   ],
   "connections": {
@@ -207,6 +267,28 @@
         [
           {
             "node": "Respond success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook audit-trail": {
+      "main": [
+        [
+          {
+            "node": "Fetch audit rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch audit rows": {
+      "main": [
+        [
+          {
+            "node": "Respond audit",
             "type": "main",
             "index": 0
           }

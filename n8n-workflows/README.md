@@ -6,9 +6,11 @@
 |---|---|
 | Instance | `https://suju1509.app.n8n.cloud` |
 | Workflow A | `A - generate-review` (id `LGGoOdiDTVdKrMon`) — **active** |
-| Webhook | `POST https://suju1509.app.n8n.cloud/webhook/generate-review` |
-| Body | `{"employee_id": "emp_001"}` |
-| Latency | ~25–40 s (two sequential LLM calls) |
+| Workflow B | `B - approve-review` (id `mzrCmPUrDAmEidjO`) — **active** |
+| Webhook A | `POST /webhook/generate-review` — body `{"employee_id": "emp_001"}` |
+| Webhook B | `POST /webhook/approve-review` — body below |
+| Webhook B2 | `GET /webhook/audit-trail[?report_id=<uuid>]` |
+| Latency | A: ~25–40 s (two sequential LLM calls) · B: <2 s |
 
 ## Architecture (9 nodes)
 
@@ -24,6 +26,39 @@ Webhook (CORS *, responseNode)
   → Postgres: insert report + audit_log row (single CTE)
   → Respond with full report JSON + report_id
 ```
+
+## Workflow B — approve-review (10 nodes, verified)
+
+`POST /webhook/approve-review`:
+
+```json
+{
+  "report_id": "<uuid from generate-review>",
+  "action": "approved",            // or "rejected"
+  "reviewer": "Manager Name",      // required — goes into the audit trail
+  "edits": {                       // optional — full replacement arrays per section
+    "growth_areas": [{"text": "rewritten point", "source_ids": ["..."]}]
+  },
+  "acknowledged_refs": ["growth_areas[1]"]   // optional — accept a flag as-is
+}
+```
+
+**The guard (the human-in-the-loop enforcement):** approval is refused with
+`422 unresolved_high_severity_flags` while any high-severity flag is neither
+edited nor listed in `acknowledged_refs`. The 422 body lists every unresolved
+flag with its reasoning, so the frontend can render exactly what must be
+addressed. Rejection is always allowed.
+
+Other verified responses:
+- `200` — finalized; report status/final_json/reviewer/approved_at updated,
+  audit row written with the field-level edit diff + acknowledged refs
+- `404 report_not_found` — unknown report_id
+- `409 already_finalized` — report was already approved/rejected (idempotency)
+- `400 invalid_action` / `400 reviewer_required`
+
+`GET /webhook/audit-trail` returns the last 100 audit entries (joined with
+employee_id + report status); `?report_id=<uuid>` filters to one report.
+This feeds the demo's audit-trail screen.
 
 ## Credentials (already created on the instance)
 
