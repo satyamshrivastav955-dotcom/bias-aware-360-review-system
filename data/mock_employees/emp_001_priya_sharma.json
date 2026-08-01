@@ -2,70 +2,69 @@
   "employee_id": "emp_001",
   "name": "Priya Sharma",
   "role": "Senior Backend Engineer",
-  "self_assessment": "This year I led the migration of our payments service from a monolith to microservices, cutting deploy time from 45 minutes to 8 minutes. I mentored two junior engineers (Rahul and Meena) through their first production launches. I want to grow my system design skills further and take on more cross-team architecture work next year.",
+  "self_assessment": "This cycle I led the migration of our payments service from the legacy monolith to a dedicated microservice, which cut p95 checkout latency from 1.8s to 640ms. I mentored two junior engineers (Rohan and Meera) through their first production launches. I want to grow my system design skills further and take on more cross-team architecture work next cycle.",
   "manager_feedback": [
     {
       "id": "manager_A_1",
-      "reviewer": "Manager A",
-      "text": "Priya delivered the payments microservices migration two weeks ahead of schedule with zero production incidents during cutover. Her runbook for the migration is now the template for other teams. She proactively flagged the Redis connection-pool risk in Q2 before it hit production.",
+      "reviewer": "Manager A (Vikram Rao)",
+      "text": "Priya delivered the payments microservice migration two weeks ahead of schedule with zero rollback incidents. Her runbook and on-call documentation were adopted as the team template. Concrete example: during the June incident (INC-4211) she diagnosed the connection-pool exhaustion in under 20 minutes.",
       "date": "2026-06"
     },
     {
       "id": "manager_A_2",
-      "reviewer": "Manager A",
-      "text": "In Q1, Priya's on-call performance was strong — she resolved the checkout-latency incident in under 40 minutes and wrote a postmortem that led to three concrete alerting improvements. Area to develop: delegating more; she sometimes takes on fixes herself instead of coaching juniors through them.",
+      "reviewer": "Manager A (Vikram Rao)",
+      "text": "In Q1 Priya drove the database sharding proposal, presented trade-offs to the platform guild in February, and got sign-off from three teams. One growth area: she sometimes takes on too much herself instead of delegating — e.g., she personally rewrote the retry logic in April rather than handing it to Rohan, who was available.",
       "date": "2026-03"
     }
   ],
   "peer_feedback": [
     {
       "id": "peer_B_1",
-      "reviewer": "Peer B (Rahul, Backend Engineer)",
-      "text": "Priya mentored me through my first production launch (the refunds API). She reviewed 40+ of my PRs this year with detailed, kind feedback. I'm a measurably better engineer because of her — my PR rejection rate dropped from 30% to under 10%.",
+      "reviewer": "Peer B (Ankit Verma)",
+      "text": "Priya's code reviews are the most thorough on the team — she caught a race condition in my idempotency-key PR (PR #892) that would have caused duplicate charges. She also ran a lunch-and-learn on Postgres locking in May that the whole team attended.",
       "date": "2026-05"
     },
     {
       "id": "peer_C_1",
-      "reviewer": "Peer C (Devi, SRE)",
-      "text": "Priya is the engineer I most want in an incident channel. During the March checkout-latency incident she stayed calm, split the investigation cleanly, and communicated status every 15 minutes. Her migration runbook saved my team at least a week of planning.",
+      "reviewer": "Peer C (Meera Iyer)",
+      "text": "As my onboarding mentor, Priya paired with me twice a week for my first two months. She let me lead the deploy of the webhook-retry feature in April while shadowing me. My only feedback: her calendar is so full it can take 2-3 days to get review time on non-urgent PRs.",
       "date": "2026-04"
     }
   ],
   "goals": [
     {
       "id": "goal_1",
-      "goal": "Complete payments microservices migration by Q3",
+      "goal": "Migrate payments service off the monolith by end of Q2",
       "status": "completed",
-      "evidence": "Migration shipped 2026-06-12, two weeks ahead of the Q3 target; zero cutover incidents; deploy time reduced from 45min to 8min."
+      "evidence": "Shipped 14 June 2026, two weeks ahead of 30 June target; p95 latency reduced 1.8s → 640ms; zero rollbacks."
     },
     {
       "id": "goal_2",
-      "goal": "Mentor two junior engineers to independent production launches",
+      "goal": "Mentor two junior engineers to independent production ownership",
       "status": "completed",
-      "evidence": "Rahul launched refunds API in May; Meena launched invoice-export in June. Both launched with Priya as reviewer, not author."
+      "evidence": "Rohan and Meera each led a production launch (April webhook-retry, May reconciliation job) with Priya as shadow reviewer."
     },
     {
       "id": "goal_3",
-      "goal": "Reduce payments service P99 latency below 300ms",
-      "status": "in_progress",
-      "evidence": "P99 down from 520ms to 340ms as of June; caching layer work continuing into Q3."
+      "goal": "Publish database sharding design and get cross-team sign-off",
+      "status": "completed",
+      "evidence": "RFC-118 approved by platform guild in February 2026 with sign-off from Payments, Ledger, and Platform teams."
     }
   ],
   "project_outcomes": [
     {
       "id": "project_1",
-      "project": "Payments microservices migration",
-      "outcome": "Delivered ahead of schedule; deploy time cut from 45min to 8min; zero production incidents during cutover; runbook adopted as org-wide template."
+      "project": "Payments microservice migration",
+      "outcome": "Delivered 14 June 2026, ahead of schedule. p95 checkout latency 1.8s → 640ms. Zero rollback incidents in first 45 days."
     },
     {
       "id": "project_2",
-      "project": "Checkout latency incident response (March)",
-      "outcome": "Resolved in 38 minutes; postmortem produced 3 alerting improvements that have since caught 2 issues pre-production."
+      "project": "Database sharding RFC-118",
+      "outcome": "Approved February 2026; implementation scheduled for Q3 with Priya as tech lead."
     }
   ],
   "meeting_notes": [
-    "2026-02 1:1 — Priya raised Redis connection-pool exhaustion risk; mitigation shipped in Q2.",
-    "2026-05 1:1 — Discussed delegation: agreed Priya routes small fixes to juniors first; tracking via sprint board.",
-    "2026-06 team retro — Migration named team's highlight of the half; Priya credited pairing sessions for smooth cutover."
+    "1:1 (2026-05-12): Discussed delegation — Priya agreed to route at least one meaty task per sprint to Rohan.",
+    "Sprint retro (2026-06-20): Team called out Priya's incident runbook as the reason INC-4211 was resolved quickly."
   ]
 }

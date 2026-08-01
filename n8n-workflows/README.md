@@ -1,40 +1,101 @@
-# n8n Workflows — Import & Setup
+# n8n Workflows
 
-## Import
-1. n8n Cloud → Workflows → Add workflow → ⋯ → **Import from File**
-2. Import `generate-review.json` (Workflow A) and `approve-review.json` (Workflow B)
+## Live deployment
 
-## After import — required edits (5 min)
-### Workflow A
-1. **Resolve Data URL** Code node: replace `<GITHUB_USER>/<REPO>` with your actual repo (mock data files must be pushed to GitHub `main` first).
-2. **Both LLM nodes** (Synthesis + Bias Detection): pre-wired for **AWS Bedrock GLM-5** (`zai.glm-5`, region `eu-north-1`).
-   - Create Credential → **AWS**: Access Key ID + Secret + region `eu-north-1`. Attach to both nodes.
-   - If your region differs, edit the URL host (`bedrock-runtime.<region>.amazonaws.com`).
-3. **Insert Report (Postgres)** node: attach your Postgres credential (Supabase → Project Settings → Database → connection string; use the *Session pooler* host, port 5432, SSL on).
-4. Run `scripts/init_db.sql` against the DB first (Supabase SQL editor works).
+| | |
+|---|---|
+| Instance | `https://suju1509.app.n8n.cloud` |
+| Workflow A | `A - generate-review` (id `LGGoOdiDTVdKrMon`) — **active** |
+| Webhook | `POST https://suju1509.app.n8n.cloud/webhook/generate-review` |
+| Body | `{"employee_id": "emp_001"}` |
+| Latency | ~25–40 s (two sequential LLM calls) |
 
-### Workflow B
-1. Attach the same Postgres credential to **Update Report (Postgres)**.
+## Architecture (9 nodes)
 
-## Activate
-Toggle both workflows **Active**. Production URLs become:
-- `https://<yourname>.app.n8n.cloud/webhook/generate-review`
-- `https://<yourname>.app.n8n.cloud/webhook/approve-review`
-
-CORS is already set to `*` in both Webhook nodes.
-
-## Test
-```bash
-N8N_URL=https://<yourname>.app.n8n.cloud bash scripts/test_pipeline.sh
+```
+Webhook (CORS *, responseNode)
+  → Postgres: fetch employee raw_data
+  → Code: flatten sources + build synthesis prompt (whitelists valid source_ids)
+  → HTTP: Synthesis Agent    — Gemini 2.5 Flash, responseSchema-constrained, temp 0.2
+  → Code: validate, strip hallucinated source_ids, drop uncited points
+  → Code: build bias prompt (adds date distribution + point_ref indexing)
+  → HTTP: Bias Detection Agent — Gemini 2.5 Flash, temp 0.1, 5 checks
+  → Code: merge flags onto points by point_ref
+  → Postgres: insert report + audit_log row (single CTE)
+  → Respond with full report JSON + report_id
 ```
 
-## API contracts (hand to frontend)
-### POST /webhook/generate-review
-Request: `{"employee_id": "emp_001" | "emp_002" | "emp_003"}`
-Response: full report JSON — `report_id`, `employee_id`, `employee_name`, `strengths[]`, `growth_areas[]`, `impact_highlights[]`, `goal_progress[]` (each point: `{text, source_ids[], flag}` where flag is `null` or `{type, reasoning, severity}`), `overall_bias_summary`, `flag_counts`, `status`.
+## Credentials (already created on the instance)
 
-### POST /webhook/approve-review
-Request: `{"report_id": "<uuid>", "action": "approve"|"reject"|"edit", "reviewer": "string", "edited_fields": {...}?}`
-Response: `{report_id, employee_id, status, reviewer, approved_at, edit_history[]}`
-- `edit` merges `edited_fields` into draft_json and appends to edit_history (stays pending_approval)
-- `approve`/`reject` set final status; approve stamps `approved_at`
+| Name | Type | Used by |
+|---|---|---|
+| `Supabase Postgres` | postgres | both Postgres nodes |
+| `Gemini Key Synthesis` | httpHeaderAuth | Synthesis Agent |
+| `Gemini Key Bias` | httpHeaderAuth | Bias Detection Agent |
+
+**Why two Gemini keys:** the free tier caps at 20 requests/min *per key per model*.
+One key shared across both agents made the second call fail with 429 under
+back-to-back runs. Separate keys give each agent an independent quota pool.
+Both HTTP nodes also have `retryOnFail` (5 tries, 15 s backoff) as a safety net.
+
+Header auth config: header name `x-goog-api-key`, value = the API key.
+
+## Database
+
+Supabase project `hmscfvtkmohmtsnzzval`.
+
+**Connect via the pooler, not the direct host.** `db.<ref>.supabase.co` resolves
+to IPv6 only and n8n Cloud is IPv4-only — it fails with `ENETUNREACH`.
+
+```
+host: aws-0-ap-southeast-1.pooler.supabase.com
+port: 5432
+user: postgres.hmscfvtkmohmtsnzzval
+db:   postgres
+ssl:  require
+```
+
+Setup: run `db/schema.sql` then `db/seed.sql`.
+
+## Test
+
+```bash
+curl -X POST https://suju1509.app.n8n.cloud/webhook/generate-review \
+  -H "Content-Type: application/json" \
+  -d '{"employee_id": "emp_002"}'
+```
+
+**Verified behaviour** (3 consecutive runs, stable):
+- `emp_001` (clean case) → **0 flags**
+- `emp_002` (biased case) → **3 flags**, including `high/contradiction` on
+  "consistently misses deadlines" (contradicted by two on-time ships +
+  documented double workload) and `high/single_source_bias` on
+  "lacks ownership" (no supporting example anywhere in sources)
+
+## Prompt-tuning notes
+
+Two calibration problems were found and fixed during testing — worth knowing
+before you touch the prompts:
+
+1. **Auditor over-flagging.** Initially flagged well-evidenced points. Fixed by
+   telling it to default to `flag: null`, and to not flag single-source points
+   that contain a concrete verifiable example.
+
+2. **Synthesis was laundering the evidence.** The bigger issue. The synthesis
+   agent rewrote "consistently misses deadlines" into "an opportunity to improve
+   deadline adherence" — which destroyed the auditor's ability to detect the
+   bias, because the harsh claim no longer existed in the text being audited.
+   Flag counts swung 1–4 between runs as a result. Fixed with an explicit
+   faithfulness rule in the synthesis prompt: represent each source's claim as
+   made, do not soften or add mitigating context. **Don't reintroduce
+   "growth_areas must be constructive" — that instruction caused this bug.**
+
+Iterate cheaply: pin the output of `Fetch employee`, then edit downstream nodes
+without re-hitting the DB. Use the test URL (`/webhook-test/generate-review`)
+during development.
+
+## Redeploy after editing the JSON
+
+```bash
+n8n-cli workflow update LGGoOdiDTVdKrMon --file=n8n-workflows/generate-review.json
+```

@@ -1,153 +1,304 @@
 {
-  "name": "A - Generate Review",
+  "name": "A - generate-review",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
         "path": "generate-review",
         "responseMode": "responseNode",
-        "options": { "allowedOrigins": "*" }
+        "options": {
+          "allowedOrigins": "*"
+        }
       },
-      "id": "wh-1",
-      "name": "Webhook",
+      "id": "wh-generate",
+      "name": "Webhook generate-review",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [0, 0],
+      "position": [
+        -1180,
+        0
+      ],
       "webhookId": "generate-review"
     },
     {
       "parameters": {
-        "jsCode": "// Map employee_id -> mock data file name\nconst id = $json.body?.employee_id || $json.employee_id;\nconst files = {\n  emp_001: 'emp_001_priya_sharma.json',\n  emp_002: 'emp_002_arjun_mehta.json',\n  emp_003: 'emp_003_kavya_nair.json'\n};\nif (!files[id]) throw new Error(`Unknown employee_id: ${id}`);\n// TODO: replace <GITHUB_USER>/<REPO>/<BRANCH> with your repo\nreturn [{ json: { employee_id: id, url: `https://raw.githubusercontent.com/<GITHUB_USER>/<REPO>/main/data/mock_employees/${files[id]}` } }];"
+        "operation": "executeQuery",
+        "query": "select employee_id, name, role, raw_data from employees where employee_id = $1",
+        "options": {
+          "queryReplacement": "={{ $json.body.employee_id }}"
+        }
       },
-      "id": "code-map",
-      "name": "Resolve Data URL",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [200, 0]
+      "id": "pg-fetch",
+      "name": "Fetch employee",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -980,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "YVgSP5ue1kUxzfQH",
+          "name": "Supabase Postgres"
+        }
+      }
     },
     {
       "parameters": {
-        "url": "={{ $json.url }}",
-        "options": {}
+        "jsCode": "// Build the synthesis prompt + flat source list.\nconst row = $input.first().json;\nif (!row || !row.raw_data) {\n  throw new Error('Employee not found: ' + JSON.stringify($('Webhook generate-review').first().json.body));\n}\nconst d = typeof row.raw_data === 'string' ? JSON.parse(row.raw_data) : row.raw_data;\n\n// Flatten every input into a numbered source list with stable IDs.\nconst sources = [];\nsources.push({ source_id: 'self_1', type: 'self_assessment', date: null, text: d.self_assessment });\nfor (const m of d.manager_feedback || []) sources.push({ source_id: m.id, type: 'manager_feedback', reviewer: m.reviewer, date: m.date, text: m.text });\nfor (const p of d.peer_feedback || []) sources.push({ source_id: p.id, type: 'peer_feedback', reviewer: p.reviewer, date: p.date, text: p.text });\nfor (const g of d.goals || []) sources.push({ source_id: g.id, type: 'goal', date: null, text: `Goal: ${g.goal} | Status: ${g.status} | Evidence: ${g.evidence}` });\nfor (const pr of d.project_outcomes || []) sources.push({ source_id: pr.id, type: 'project_outcome', date: null, text: `Project: ${pr.project} | Outcome: ${pr.outcome}` });\n(d.meeting_notes || []).forEach((n, i) => sources.push({ source_id: `note_${i + 1}`, type: 'meeting_note', date: null, text: n }));\n\nconst validIds = sources.map(s => s.source_id);\n\nconst prompt = `You are an HR performance review synthesizer. Given the numbered source list below for ${d.name} (${d.role}), produce a structured performance review.\n\nRules:\n- Every point MUST cite one or more source_id values from the list. Only these IDs are valid: ${validIds.join(', ')}\n- Do NOT invent facts absent from the sources.\n- Each point must be specific and evidence-based, quoting concrete outcomes, dates, or numbers where the sources contain them.\n- 2-4 points per section.\n- CRITICAL: Represent each source's claim FAITHFULLY. Do not soften, sanitize, or reword a reviewer's assertion into diplomatic language. If a manager says 'consistently misses deadlines', the growth area must state that claim as made - do NOT rewrite it as 'an opportunity to improve deadline adherence'. Your job is faithful synthesis, not diplomacy. A separate bias auditor downstream must be able to see the original strength of each claim in order to fairness-check it; softening claims defeats that audit and harms the employee.\n- Do not add mitigating context to a negative claim unless a source explicitly provides it (cite that source if so).\n\nSOURCES:\n${JSON.stringify(sources, null, 2)}`;\n\nreturn [{ json: { employee_id: d.employee_id, name: d.name, role: d.role, prompt, sources, validIds } }];"
       },
-      "id": "http-fetch",
-      "name": "Fetch Employee Data",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [400, 0]
-    },
-    {
-      "parameters": {
-        "jsCode": "const employee = $json;\nconst prompt = `You are an HR performance review synthesizer. Given raw 360-degree feedback data for an employee, produce a structured JSON report.\\n\\nRules:\\n- Every point MUST cite which input(s) it came from via \\\"source_ids\\\", using the EXACT \\\"id\\\" values from the input data (e.g. \\\"manager_A_1\\\", \\\"peer_B_1\\\", \\\"goal_1\\\", \\\"project_1\\\"). For self_assessment use \\\"self_assessment\\\"; for meeting notes use \\\"meeting_note_1\\\", \\\"meeting_note_2\\\" etc. (1-indexed by position).\\n- Do NOT invent facts not present in the input. Do not soften or amplify claims.\\n- Keep each point specific and evidence-based: include numbers, project names, and named outcomes when the source has them.\\n- If sources conflict (e.g. manager says X but peers/project outcomes say otherwise), include BOTH perspectives as separate points rather than silently picking one. Report the manager's claim faithfully as stated, citing only its actual source.\\n- Include every substantive claim from the input somewhere in the report, even claims that seem weak or unsupported.\\n- 2-5 points per section. Empty array if a section truly has no material.\\n\\nOutput ONLY valid JSON matching this schema — no markdown fences, no preamble:\\n{\\n  \\\"strengths\\\": [{\\\"text\\\": \\\"string\\\", \\\"source_ids\\\": [\\\"id1\\\"]}],\\n  \\\"growth_areas\\\": [{\\\"text\\\": \\\"string\\\", \\\"source_ids\\\": [\\\"id1\\\"]}],\\n  \\\"impact_highlights\\\": [{\\\"text\\\": \\\"string\\\", \\\"source_ids\\\": [\\\"id1\\\"]}],\\n  \\\"goal_progress\\\": [{\\\"text\\\": \\\"string\\\", \\\"source_ids\\\": [\\\"id1\\\"]}]\\n}\\n\\nInput data:\\n${JSON.stringify(employee, null, 2)}`;\nreturn [{ json: { prompt, employee } }];"
-      },
-      "id": "code-syn-prompt",
-      "name": "Build Synthesis Prompt",
+      "id": "code-prompt",
+      "name": "Build synthesis prompt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [600, 0]
+      "position": [
+        -780,
+        0
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://bedrock-runtime.eu-north-1.amazonaws.com/model/zai.glm-5/converse",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "aws",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ messages: [{ role: 'user', content: [{ text: $json.prompt }] }], inferenceConfig: { maxTokens: 4096, temperature: 0.2 } }) }}",
-        "options": {}
+        "jsonBody": "={{ JSON.stringify({\n  contents: [{ role: 'user', parts: [{ text: $json.prompt }] }],\n  generationConfig: {\n    temperature: 0.2,\n    responseMimeType: 'application/json',\n    responseSchema: {\n      type: 'OBJECT',\n      properties: {\n        strengths: { type: 'ARRAY', items: { type: 'OBJECT', properties: { text: { type: 'STRING' }, source_ids: { type: 'ARRAY', items: { type: 'STRING' } } }, required: ['text', 'source_ids'] } },\n        growth_areas: { type: 'ARRAY', items: { type: 'OBJECT', properties: { text: { type: 'STRING' }, source_ids: { type: 'ARRAY', items: { type: 'STRING' } } }, required: ['text', 'source_ids'] } },\n        impact_highlights: { type: 'ARRAY', items: { type: 'OBJECT', properties: { text: { type: 'STRING' }, source_ids: { type: 'ARRAY', items: { type: 'STRING' } } }, required: ['text', 'source_ids'] } },\n        goal_progress: { type: 'ARRAY', items: { type: 'OBJECT', properties: { text: { type: 'STRING' }, source_ids: { type: 'ARRAY', items: { type: 'STRING' } } }, required: ['text', 'source_ids'] } }\n      },\n      required: ['strengths', 'growth_areas', 'impact_highlights', 'goal_progress']\n    }\n  }\n}) }}",
+        "options": {
+          "timeout": 60000
+        }
       },
-      "id": "http-syn",
-      "name": "Synthesis Agent (LLM)",
+      "id": "http-synthesis",
+      "name": "Synthesis Agent (Gemini)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [800, 0]
+      "position": [
+        -580,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "nRdVnPhVIx57UnIe",
+          "name": "Gemini Key Synthesis"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 15000
     },
     {
       "parameters": {
-        "jsCode": "// Parse + validate synthesis output\nlet text = $json.output?.message?.content?.[0]?.text ?? $json.content?.[0]?.text ?? $json.choices?.[0]?.message?.content;\nif (!text) throw new Error('No LLM text in response');\ntext = text.trim().replace(/^```(json)?/,'').replace(/```$/,'').trim();\nconst synthesis = JSON.parse(text);\nfor (const f of ['strengths','growth_areas','impact_highlights','goal_progress']) {\n  if (!Array.isArray(synthesis[f])) throw new Error(`Synthesis missing field: ${f}`);\n}\nconst employee = $('Build Synthesis Prompt').first().json.employee;\nreturn [{ json: { synthesis, employee } }];"
+        "jsCode": "// Parse + validate synthesis output. Strip any hallucinated source_ids.\nconst ctx = $('Build synthesis prompt').first().json;\nconst resp = $input.first().json;\nconst raw = resp?.candidates?.[0]?.content?.parts?.[0]?.text;\nif (!raw) throw new Error('Empty Gemini response: ' + JSON.stringify(resp).slice(0, 500));\n\nlet report;\ntry {\n  report = JSON.parse(raw);\n} catch (e) {\n  throw new Error('Synthesis output was not valid JSON: ' + raw.slice(0, 500));\n}\n\nconst valid = new Set(ctx.validIds);\nconst stripped = [];\nfor (const section of ['strengths', 'growth_areas', 'impact_highlights', 'goal_progress']) {\n  report[section] = (report[section] || []).filter(pt => {\n    pt.source_ids = (pt.source_ids || []).filter(id => valid.has(id));\n    if (pt.source_ids.length === 0) { stripped.push({ section, text: pt.text }); return false; }\n    pt.flag = null;\n    return true;\n  });\n}\n\nreturn [{ json: { employee_id: ctx.employee_id, name: ctx.name, role: ctx.role, report, sources: ctx.sources, stripped_uncited_points: stripped } }];"
       },
-      "id": "code-syn-parse",
-      "name": "Parse Synthesis",
+      "id": "code-validate",
+      "name": "Validate + strip uncited",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1000, 0]
+      "position": [
+        -380,
+        0
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const { synthesis, employee } = $json;\nconst prompt = `You are a bias auditor reviewing a synthesized performance report against its original source data. For EACH point in the report, evaluate it against these 4 categories:\\n\\n1. unsupported_claim — the point has no concrete evidence in the cited sources, OR the cited source doesn't actually support the claim, OR other sources (peers, goals, project outcomes) directly contradict it with concrete evidence.\\n2. recency_bias — the point only reflects the most recent period and ignores earlier data that contradicts or adds context (compare \\\"date\\\" fields across sources).\\n3. single_source_bias — the point rests on only one reviewer's input when other reviewers' input exists that could corroborate or contradict it, and no corroboration is cited.\\n4. vague_language — the point lacks specific, concrete detail: no numbers, no named projects/examples, no measurable outcomes. This INCLUDES positive praise: if a point contains no concrete example, number, or named project anywhere in its cited sources, it MUST be flagged vague_language (severity low or medium). Generic goodwill is not evidence.\\n\\nRules:\\n- Cross-reference against ALL original source data below, not just the cited source_ids.\\n- If a point matches multiple categories, choose the most serious (unsupported_claim > recency_bias > single_source_bias > vague_language) and mention the others in reasoning.\\n- reasoning must name the specific contradicting or missing evidence (cite source ids).\\n- severity: high = claim contradicted by concrete evidence or could materially harm the employee; medium = weakly supported or one-sided; low = stylistic vagueness.\\n- Be strict on negative claims about the employee; for positive points, flag them as vague_language whenever they lack any concrete specifics, even if positive.\\n- Do not flag points that are specific, corroborated, and consistent with the data.\\n\\nOutput ONLY valid JSON, no markdown fences, no preamble, same sections and same order of points as the input report; each point gets a \\\"flag\\\" that is either null or {\\\"type\\\":\\\"unsupported_claim|recency_bias|single_source_bias|vague_language\\\",\\\"reasoning\\\":\\\"string\\\",\\\"severity\\\":\\\"low|medium|high\\\"}. Also add top-level \\\"overall_bias_summary\\\" (1-3 sentences).\\n\\nSynthesized report:\\n${JSON.stringify(synthesis, null, 2)}\\n\\nOriginal source data (all feedback for this employee):\\n${JSON.stringify(employee, null, 2)}`;\nreturn [{ json: { prompt, synthesis, employee } }];"
+        "jsCode": "// Build the bias-audit prompt: report + sources + date distribution.\nconst j = $input.first().json;\nconst dates = j.sources.filter(s => s.date).map(s => `${s.source_id}: ${s.date}`);\n\n// Give every point a stable ref like strengths[0] so flags can be merged back.\nconst points = [];\nfor (const section of ['strengths', 'growth_areas', 'impact_highlights', 'goal_progress']) {\n  j.report[section].forEach((pt, i) => points.push({ point_ref: `${section}[${i}]`, text: pt.text, source_ids: pt.source_ids }));\n}\n\nconst prompt = `You are a bias auditor for performance reviews. Audit EVERY point below against the source data.\n\nFor each point, check for exactly these issues:\n1. unsupported_claim - the point (or the source it cites) asserts something with no concrete evidence anywhere in the sources\n2. recency_bias - the point relies only on the most recent period while earlier sources show relevant contrary or additional evidence (see date distribution)\n3. single_source_bias - a SUBJECTIVE character judgement resting on one reviewer with NO concrete verifiable example. If the single source gives a specific incident, PR number, date, or measurable outcome, do NOT flag it.\n4. vague_language - the point or its cited source uses generic, non-specific language ('be more proactive', 'improve communication') with no examples\n5. contradiction - the point's substantive claim about performance conflicts with goals or project_outcomes evidence (e.g. 'misses deadlines' when outcomes show on-time delivery). A minor date/detail discrepancy between two sources describing the SAME event is NOT a contradiction - ignore it.\n\nRules:\n- Output one entry per point, in the same order, using its point_ref.\n- DEFAULT TO flag: null. Most points in a fair review are fine. Only flag when a specific, nameable problem exists. A point citing 3+ sources or citing objective goal/project evidence is almost never biased.\n- Never flag a point merely for being positive, or for citing few sources when those sources are objective records (goals, project_outcomes).\n- severity: low | medium | high. Use high when: a claim is contradicted by objective goal/project evidence, OR a negative judgement about the person has no supporting example anywhere in the sources. Use low only for wording/tone issues. Do not under-call severity on unevidenced criticism - that is the most harmful bias in a review.\n- When a negative claim about the employee is contradicted by objective evidence, prefer type 'contradiction' over 'unsupported_claim'.\n- reasoning must name the specific sources that support or undermine the point.\n- Also output overall_bias_summary: 2-3 sentences on the overall fairness of this review and any reviewer imbalance (e.g. count of manager vs peer sources).\n\nDATE DISTRIBUTION OF SOURCES:\n${dates.join('\\n')}\n\nREPORT POINTS:\n${JSON.stringify(points, null, 2)}\n\nSOURCE DATA:\n${JSON.stringify(j.sources, null, 2)}`;\n\nreturn [{ json: { ...j, bias_prompt: prompt } }];"
       },
       "id": "code-bias-prompt",
-      "name": "Build Bias Prompt",
+      "name": "Build bias prompt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1200, 0]
+      "position": [
+        -180,
+        0
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://bedrock-runtime.eu-north-1.amazonaws.com/model/zai.glm-5/converse",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "aws",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ messages: [{ role: 'user', content: [{ text: $json.prompt }] }], inferenceConfig: { maxTokens: 4096, temperature: 0.2 } }) }}",
-        "options": {}
+        "jsonBody": "={{ JSON.stringify({\n  contents: [{ role: 'user', parts: [{ text: $json.bias_prompt }] }],\n  generationConfig: {\n    temperature: 0.1,\n    responseMimeType: 'application/json',\n    responseSchema: {\n      type: 'OBJECT',\n      properties: {\n        audits: {\n          type: 'ARRAY',\n          items: {\n            type: 'OBJECT',\n            properties: {\n              point_ref: { type: 'STRING' },\n              flag: {\n                type: 'OBJECT',\n                nullable: true,\n                properties: {\n                  type: { type: 'STRING', enum: ['unsupported_claim', 'recency_bias', 'single_source_bias', 'vague_language', 'contradiction'] },\n                  reasoning: { type: 'STRING' },\n                  severity: { type: 'STRING', enum: ['low', 'medium', 'high'] }\n                },\n                required: ['type', 'reasoning', 'severity']\n              }\n            },\n            required: ['point_ref']\n          }\n        },\n        overall_bias_summary: { type: 'STRING' }\n      },\n      required: ['audits', 'overall_bias_summary']\n    }\n  }\n}) }}",
+        "options": {
+          "timeout": 60000
+        }
       },
       "id": "http-bias",
-      "name": "Bias Detection Agent (LLM)",
+      "name": "Bias Detection Agent (Gemini)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1400, 0]
+      "position": [
+        20,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "z7UvYnCSLpskwvEP",
+          "name": "Gemini Key Bias"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 15000
     },
     {
       "parameters": {
-        "jsCode": "let text = $json.output?.message?.content?.[0]?.text ?? $json.content?.[0]?.text ?? $json.choices?.[0]?.message?.content;\nif (!text) throw new Error('No LLM text in bias response');\ntext = text.trim().replace(/^```(json)?/,'').replace(/```$/,'').trim();\nconst audited = JSON.parse(text);\nconst { employee } = $('Build Bias Prompt').first().json;\n\n// Count flags by type for the summary\nconst sections = ['strengths','growth_areas','impact_highlights','goal_progress'];\nconst counts = {};\nfor (const s of sections) {\n  for (const p of (audited[s] || [])) {\n    if (p.flag) counts[p.flag.type] = (counts[p.flag.type] || 0) + 1;\n  }\n}\nconst report = {\n  employee_id: employee.employee_id,\n  employee_name: employee.name,\n  ...Object.fromEntries(sections.map(s => [s, audited[s] || []])),\n  overall_bias_summary: audited.overall_bias_summary || (Object.keys(counts).length ? `Flags detected: ${JSON.stringify(counts)}` : 'No bias flags detected.'),\n  flag_counts: counts,\n  status: 'pending_approval'\n};\nreturn [{ json: { report, draft_json: JSON.stringify(report), employee_id: employee.employee_id } }];"
+        "jsCode": "// Merge bias flags back onto report points by point_ref.\nconst ctx = $('Build bias prompt').first().json;\nconst resp = $input.first().json;\nconst raw = resp?.candidates?.[0]?.content?.parts?.[0]?.text;\nif (!raw) throw new Error('Empty bias-agent response: ' + JSON.stringify(resp).slice(0, 500));\nconst audit = JSON.parse(raw);\n\nconst report = ctx.report;\nfor (const a of audit.audits || []) {\n  const m = /^(\\w+)\\[(\\d+)\\]$/.exec(a.point_ref || '');\n  if (!m) continue;\n  const [, section, idx] = m;\n  if (report[section] && report[section][+idx]) {\n    report[section][+idx].flag = a.flag || null;\n  }\n}\n\nconst flagCount = ['strengths','growth_areas','impact_highlights','goal_progress']\n  .flatMap(s => report[s]).filter(p => p.flag).length;\n\nconst final = {\n  employee_id: ctx.employee_id,\n  name: ctx.name,\n  role: ctx.role,\n  ...report,\n  overall_bias_summary: audit.overall_bias_summary || '',\n  flag_count: flagCount,\n  status: 'pending_approval'\n};\n\nreturn [{ json: { employee_id: ctx.employee_id, draft: final } }];"
       },
       "id": "code-merge",
-      "name": "Merge Flags + Summary",
+      "name": "Merge flags",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1600, 0]
+      "position": [
+        220,
+        0
+      ]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO reports (employee_id, draft_json, status) VALUES ($1, $2::jsonb, 'pending_approval') RETURNING id, created_at;",
+        "query": "with r as (\n  insert into reports (employee_id, draft_json, status)\n  values ($1, $2::jsonb, 'pending_approval')\n  returning id\n)\ninsert into audit_log (report_id, actor, action, diff)\nselect id, 'system', 'generated', null from r\nreturning report_id",
         "options": {
-          "queryReplacement": "={{ $json.employee_id }},{{ $json.draft_json }}"
+          "queryReplacement": "={{ $json.employee_id }},{{ JSON.stringify($json.draft) }}"
         }
       },
-      "id": "pg-insert",
-      "name": "Insert Report (Postgres)",
+      "id": "pg-store",
+      "name": "Store draft + audit",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1800, 0]
+      "position": [
+        420,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "YVgSP5ue1kUxzfQH",
+          "name": "Supabase Postgres"
+        }
+      }
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ report_id: $json.id, created_at: $json.created_at, ...$('Merge Flags + Summary').first().json.report }) }}",
+        "responseBody": "={{ JSON.stringify({ report_id: $json.report_id, ...$('Merge flags').first().json.draft }) }}",
         "options": {}
       },
       "id": "respond",
-      "name": "Respond",
+      "name": "Respond with report",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [2000, 0]
+      "position": [
+        620,
+        0
+      ]
     }
   ],
   "connections": {
-    "Webhook": { "main": [[{ "node": "Resolve Data URL", "type": "main", "index": 0 }]] },
-    "Resolve Data URL": { "main": [[{ "node": "Fetch Employee Data", "type": "main", "index": 0 }]] },
-    "Fetch Employee Data": { "main": [[{ "node": "Build Synthesis Prompt", "type": "main", "index": 0 }]] },
-    "Build Synthesis Prompt": { "main": [[{ "node": "Synthesis Agent (LLM)", "type": "main", "index": 0 }]] },
-    "Synthesis Agent (LLM)": { "main": [[{ "node": "Parse Synthesis", "type": "main", "index": 0 }]] },
-    "Parse Synthesis": { "main": [[{ "node": "Build Bias Prompt", "type": "main", "index": 0 }]] },
-    "Build Bias Prompt": { "main": [[{ "node": "Bias Detection Agent (LLM)", "type": "main", "index": 0 }]] },
-    "Bias Detection Agent (LLM)": { "main": [[{ "node": "Merge Flags + Summary", "type": "main", "index": 0 }]] },
-    "Merge Flags + Summary": { "main": [[{ "node": "Insert Report (Postgres)", "type": "main", "index": 0 }]] },
-    "Insert Report (Postgres)": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+    "Webhook generate-review": {
+      "main": [
+        [
+          {
+            "node": "Fetch employee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch employee": {
+      "main": [
+        [
+          {
+            "node": "Build synthesis prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build synthesis prompt": {
+      "main": [
+        [
+          {
+            "node": "Synthesis Agent (Gemini)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Synthesis Agent (Gemini)": {
+      "main": [
+        [
+          {
+            "node": "Validate + strip uncited",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate + strip uncited": {
+      "main": [
+        [
+          {
+            "node": "Build bias prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build bias prompt": {
+      "main": [
+        [
+          {
+            "node": "Bias Detection Agent (Gemini)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bias Detection Agent (Gemini)": {
+      "main": [
+        [
+          {
+            "node": "Merge flags",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge flags": {
+      "main": [
+        [
+          {
+            "node": "Store draft + audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store draft + audit": {
+      "main": [
+        [
+          {
+            "node": "Respond with report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "settings": { "executionOrder": "v1" }
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
 }

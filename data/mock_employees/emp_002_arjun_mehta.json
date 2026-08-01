@@ -2,64 +2,74 @@
   "employee_id": "emp_002",
   "name": "Arjun Mehta",
   "role": "Frontend Engineer",
-  "self_assessment": "I shipped the new dashboard redesign this year, which improved page-load time by 42% and raised our accessibility score from 71 to 96. I picked up on-call duties for the web platform in Q1 and closed 34 bugs during the March quality sprint. I feel my work is solid but I don't think my manager sees much of it since we moved to different office floors in April.",
+  "self_assessment": "I shipped the new analytics dashboard in Q1, which is now used by 40+ internal users daily, and delivered the design-system component library on time in February. In June I had a rough sprint while covering for two teammates on leave, and one release slipped by three days. I'd like clearer priorities when I'm covering multiple workstreams.",
   "manager_feedback": [
     {
-      "id": "manager_D_1",
-      "reviewer": "Manager D",
-      "text": "Arjun consistently underperforms compared to the rest of the team. He doesn't seem engaged and I rarely see him contributing in meetings. I have concerns about his commitment.",
+      "id": "manager_A_1",
+      "reviewer": "Manager A (Sanjay Kulkarni)",
+      "text": "Arjun lacks ownership and doesn't take initiative on the team's problems.",
+      "date": "2026-07"
+    },
+    {
+      "id": "manager_A_2",
+      "reviewer": "Manager A (Sanjay Kulkarni)",
+      "text": "Arjun consistently misses deadlines. The June release slipped and it disrupted the QA schedule.",
+      "date": "2026-07"
+    },
+    {
+      "id": "manager_A_3",
+      "reviewer": "Manager A (Sanjay Kulkarni)",
+      "text": "Arjun needs to be more proactive and could improve his communication with stakeholders.",
       "date": "2026-06"
     }
   ],
   "peer_feedback": [
     {
-      "id": "peer_E_1",
-      "reviewer": "Peer E (Sana, Frontend Engineer)",
-      "text": "Arjun single-handedly drove the dashboard redesign — 42% faster page loads and the accessibility score went from 71 to 96, which unblocked the enterprise deal with Northstar. He pairs with me weekly and unblocked my chart-rendering bug in an afternoon after I'd been stuck for two days.",
-      "date": "2026-05"
-    },
-    {
-      "id": "peer_F_1",
-      "reviewer": "Peer F (Karthik, QA Engineer)",
-      "text": "During the March quality sprint Arjun closed 34 bugs — the highest on the team — including the long-standing Safari checkout rendering bug that support had 60+ tickets on. He writes the most testable frontend code on the team.",
-      "date": "2026-03"
-    },
-    {
-      "id": "peer_G_1",
-      "reviewer": "Peer G (Lin, Product Designer)",
-      "text": "Arjun is quiet in large meetings but incredibly effective async — his RFC comments on the dashboard redesign caught two UX issues before we built them. He prototyped three design options in a week when we were stuck.",
-      "date": "2026-04"
+      "id": "peer_B_1",
+      "reviewer": "Peer B (Divya Nair)",
+      "text": "Arjun single-handedly kept the frontend on track in June while covering for two people on leave. He proactively flagged the release risk to QA a week early and re-scoped the sprint himself. The dashboard he built in Q1 saved my team hours every week.",
+      "date": "2026-06"
     }
   ],
   "goals": [
     {
       "id": "goal_1",
-      "goal": "Ship dashboard redesign by end of Q2",
+      "goal": "Ship the internal analytics dashboard by end of Q1",
       "status": "completed",
-      "evidence": "Shipped 2026-05-20. Page-load time improved 42% (3.1s → 1.8s); Lighthouse accessibility score 71 → 96."
+      "evidence": "Launched 20 March 2026; 40+ daily active internal users by May."
     },
     {
       "id": "goal_2",
-      "goal": "Reduce open frontend bug backlog by 25%",
+      "goal": "Deliver the design-system component library by end of February",
       "status": "completed",
-      "evidence": "Backlog reduced 31% (178 → 123 bugs), driven largely by Arjun's 34 closed bugs in the March quality sprint."
+      "evidence": "Delivered 25 February 2026, on schedule; adopted by three product squads."
+    },
+    {
+      "id": "goal_3",
+      "goal": "Reduce frontend bundle size by 25%",
+      "status": "in_progress",
+      "evidence": "18% reduction achieved as of June; remaining work scheduled for Q3."
     }
   ],
   "project_outcomes": [
     {
       "id": "project_1",
-      "project": "Dashboard redesign",
-      "outcome": "Shipped on time; 42% page-load improvement; accessibility 71 → 96; cited by sales as a factor in closing the Northstar enterprise deal."
+      "project": "Analytics dashboard",
+      "outcome": "Shipped 20 March 2026, on time. 40+ daily internal users; cited by Data team as replacing a manual weekly report."
     },
     {
       "id": "project_2",
-      "project": "March quality sprint",
-      "outcome": "Arjun closed 34 bugs (team high), including the Safari checkout bug behind 60+ support tickets."
+      "project": "Design-system component library",
+      "outcome": "Shipped 25 February 2026, on time. Adopted by three squads; reduced duplicated UI code."
+    },
+    {
+      "id": "project_3",
+      "project": "June maintenance release",
+      "outcome": "Released 3 days late (18 June vs 15 June target) while Arjun covered for two engineers on leave; no functionality cut."
     }
   ],
   "meeting_notes": [
-    "2026-04 org update — Team seating moved; Manager D relocated to floor 3, frontend team stayed on floor 5.",
-    "2026-05 sprint review — Dashboard redesign demo received positive feedback from sales and support leads.",
-    "2026-06 1:1 (skip-level) — Arjun noted limited face time with Manager D since April; requested more regular 1:1s."
+    "Sprint planning (2026-06-02): Arjun assigned double load covering for Kunal and Sneha (both on leave through June).",
+    "1:1 (2026-06-25): Arjun raised that priorities were unclear while covering multiple workstreams; asked manager for a ranked list."
   ]
 }

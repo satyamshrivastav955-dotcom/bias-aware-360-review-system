@@ -1,61 +1,221 @@
 {
-  "name": "B - Approve Review",
+  "name": "B - approve-review",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
         "path": "approve-review",
         "responseMode": "responseNode",
-        "options": { "allowedOrigins": "*" }
+        "options": {
+          "allowedOrigins": "*"
+        }
       },
-      "id": "wh-b1",
-      "name": "Webhook",
+      "id": "wh-approve",
+      "name": "Webhook approve-review",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [0, 0],
+      "position": [
+        -900,
+        0
+      ],
       "webhookId": "approve-review"
     },
     {
       "parameters": {
-        "jsCode": "const b = $json.body || $json;\nconst { report_id, action, reviewer, edited_fields } = b;\nif (!report_id) throw new Error('report_id required');\nif (!['approve','reject','edit'].includes(action)) throw new Error(`Invalid action: ${action}`);\nif (!reviewer) throw new Error('reviewer required');\nconst statusMap = { approve: 'approved', reject: 'rejected', edit: 'pending_approval' };\nreturn [{ json: {\n  report_id,\n  action,\n  reviewer,\n  new_status: statusMap[action],\n  edited_fields: edited_fields || null,\n  audit_entry: JSON.stringify({ timestamp: new Date().toISOString(), reviewer, action, changes: edited_fields || null })\n} }];"
+        "operation": "executeQuery",
+        "query": "select id, employee_id, draft_json, status, reviewer from reports where id = $1::uuid",
+        "options": {
+          "queryReplacement": "={{ $json.body.report_id }}"
+        }
       },
-      "id": "code-validate",
-      "name": "Validate Request",
+      "id": "pg-load",
+      "name": "Load report",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -700,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "YVgSP5ue1kUxzfQH",
+          "name": "Supabase Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Guard + diff. This is what makes human-in-the-loop real:\n// an unaddressed high-severity bias flag cannot be approved away.\nconst body = $('Webhook approve-review').first().json.body || {};\nconst row = $input.first().json;\n\nif (!row || !row.id) {\n  return [{ json: { __http_status: 404, ok: false, error: 'report_not_found', report_id: body.report_id } }];\n}\nif (row.status !== 'pending_approval') {\n  return [{ json: { __http_status: 409, ok: false, error: 'already_finalized', status: row.status, reviewer: row.reviewer } }];\n}\n\nconst action = body.action;\nconst reviewer = (body.reviewer || '').trim();\nif (!['approved', 'rejected'].includes(action)) {\n  return [{ json: { __http_status: 400, ok: false, error: 'invalid_action', detail: \"action must be 'approved' or 'rejected'\" } }];\n}\nif (!reviewer) {\n  return [{ json: { __http_status: 400, ok: false, error: 'reviewer_required', detail: 'reviewer name is required for the audit trail' } }];\n}\n\nconst draft = typeof row.draft_json === 'string' ? JSON.parse(row.draft_json) : row.draft_json;\nconst SECTIONS = ['strengths', 'growth_areas', 'impact_highlights', 'goal_progress'];\nconst edits = body.edits || {};\n\n// Which points did the reviewer actually change?\nconst editedRefs = new Set();\nconst diff = [];\nfor (const section of SECTIONS) {\n  const before = draft[section] || [];\n  const after = edits[section];\n  if (!Array.isArray(after)) continue;\n  before.forEach((pt, i) => {\n    const nt = after[i]?.text;\n    if (nt !== undefined && nt !== pt.text) {\n      editedRefs.add(`${section}[${i}]`);\n      diff.push({ point_ref: `${section}[${i}]`, before: pt.text, after: nt });\n    }\n  });\n  if (after.length < before.length) {\n    for (let i = after.length; i < before.length; i++) {\n      editedRefs.add(`${section}[${i}]`);\n      diff.push({ point_ref: `${section}[${i}]`, before: before[i].text, after: null, removed: true });\n    }\n  }\n}\n\n// GUARD: block approval while any high-severity flag is unaddressed.\nif (action === 'approved') {\n  const unresolved = [];\n  for (const section of SECTIONS) {\n    (draft[section] || []).forEach((pt, i) => {\n      const ref = `${section}[${i}]`;\n      if (pt.flag && pt.flag.severity === 'high' && !editedRefs.has(ref) && !(body.acknowledged_refs || []).includes(ref)) {\n        unresolved.push({ point_ref: ref, type: pt.flag.type, text: pt.text, reasoning: pt.flag.reasoning });\n      }\n    });\n  }\n  if (unresolved.length) {\n    return [{ json: {\n      __http_status: 422,\n      ok: false,\n      error: 'unresolved_high_severity_flags',\n      detail: 'This report has high-severity bias flags that must be edited or explicitly acknowledged before approval.',\n      unresolved_count: unresolved.length,\n      unresolved\n    } }];\n  }\n}\n\n// Apply edits to produce the final report.\nconst final = JSON.parse(JSON.stringify(draft));\nfor (const section of SECTIONS) {\n  const after = edits[section];\n  if (!Array.isArray(after)) continue;\n  final[section] = after.map((pt, i) => ({\n    ...(draft[section]?.[i] || {}),\n    ...pt,\n    edited: draft[section]?.[i] ? pt.text !== draft[section][i].text : true\n  }));\n}\nfinal.status = action;\n\nreturn [{ json: {\n  __http_status: 200,\n  ok: true,\n  report_id: row.id,\n  employee_id: row.employee_id,\n  action,\n  reviewer,\n  final,\n  diff,\n  acknowledged_refs: body.acknowledged_refs || [],\n  edit_count: diff.length\n} }];"
+      },
+      "id": "code-guard",
+      "name": "Guard + diff",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [200, 0]
+      "position": [
+        -500,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "is-ok",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-ok",
+      "name": "Passed guard?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -300,
+        0
+      ]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE reports SET\n  status = $2,\n  reviewer = $3,\n  approved_at = CASE WHEN $4 = 'approve' THEN now() ELSE approved_at END,\n  draft_json = CASE WHEN $5::jsonb IS NOT NULL THEN draft_json || $5::jsonb ELSE draft_json END,\n  edit_history = edit_history || $6::jsonb\nWHERE id = $1::uuid\nRETURNING id, employee_id, status, reviewer, approved_at, edit_history;",
+        "query": "with upd as (\n  update reports\n     set status = $2,\n         final_json = $3::jsonb,\n         reviewer = $4,\n         approved_at = now()\n   where id = $1::uuid\n  returning id\n)\ninsert into audit_log (report_id, actor, action, diff)\nselect id, $4, $2, $5::jsonb from upd\nreturning report_id, action, actor, at",
         "options": {
-          "queryReplacement": "={{ $json.report_id }},{{ $json.new_status }},{{ $json.reviewer }},{{ $json.action }},{{ $json.edited_fields ? JSON.stringify($json.edited_fields) : null }},{{ $json.audit_entry }}"
+          "queryReplacement": "={{ $json.report_id }},{{ $json.action }},{{ JSON.stringify($json.final) }},{{ $json.reviewer }},{{ JSON.stringify({ edits: $json.diff, acknowledged_refs: $json.acknowledged_refs }) }}"
         }
       },
-      "id": "pg-update",
-      "name": "Update Report (Postgres)",
+      "id": "pg-finalize",
+      "name": "Finalize + audit",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [400, 0]
+      "position": [
+        -100,
+        -100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "YVgSP5ue1kUxzfQH",
+          "name": "Supabase Postgres"
+        }
+      }
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ report_id: $json.id, employee_id: $json.employee_id, status: $json.status, reviewer: $json.reviewer, approved_at: $json.approved_at, edit_history: $json.edit_history }) }}",
-        "options": {}
+        "responseBody": "={{ JSON.stringify({ ok: true, report_id: $('Guard + diff').first().json.report_id, employee_id: $('Guard + diff').first().json.employee_id, status: $('Guard + diff').first().json.action, reviewer: $('Guard + diff').first().json.reviewer, edit_count: $('Guard + diff').first().json.edit_count, approved_at: $json.at }) }}",
+        "options": {
+          "responseCode": 200
+        }
       },
-      "id": "respond-b",
-      "name": "Respond",
+      "id": "respond-ok",
+      "name": "Respond success",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [600, 0]
+      "position": [
+        120,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": "={{ $json.__http_status || 400 }}"
+        }
+      },
+      "id": "respond-err",
+      "name": "Respond blocked",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -100,
+        120
+      ]
     }
   ],
   "connections": {
-    "Webhook": { "main": [[{ "node": "Validate Request", "type": "main", "index": 0 }]] },
-    "Validate Request": { "main": [[{ "node": "Update Report (Postgres)", "type": "main", "index": 0 }]] },
-    "Update Report (Postgres)": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+    "Webhook approve-review": {
+      "main": [
+        [
+          {
+            "node": "Load report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load report": {
+      "main": [
+        [
+          {
+            "node": "Guard + diff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guard + diff": {
+      "main": [
+        [
+          {
+            "node": "Passed guard?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Passed guard?": {
+      "main": [
+        [
+          {
+            "node": "Finalize + audit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond blocked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize + audit": {
+      "main": [
+        [
+          {
+            "node": "Respond success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "settings": { "executionOrder": "v1" }
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
 }
