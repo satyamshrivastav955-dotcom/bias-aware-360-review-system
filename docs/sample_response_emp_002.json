@@ -1,0 +1,61 @@
+{
+  "report_id": "3f9c2a1e-7b4d-4e2a-9c1f-8d6e5a4b3c2d",
+  "created_at": "2026-08-01T10:15:00.000Z",
+  "employee_id": "emp_002",
+  "employee_name": "Arjun Mehta",
+  "strengths": [
+    {
+      "text": "Drove the dashboard redesign to a 42% page-load improvement and raised the Lighthouse accessibility score from 71 to 96, corroborated by peer feedback and project outcomes.",
+      "source_ids": ["peer_E_1", "project_1", "goal_1", "self_assessment"],
+      "flag": null
+    },
+    {
+      "text": "Closed 34 bugs in the March quality sprint (team high), including the Safari checkout bug behind 60+ support tickets.",
+      "source_ids": ["peer_F_1", "project_2", "goal_2"],
+      "flag": null
+    },
+    {
+      "text": "Highly effective in async collaboration: RFC comments caught two UX issues pre-build and prototyped three design options in a week.",
+      "source_ids": ["peer_G_1"],
+      "flag": null
+    }
+  ],
+  "growth_areas": [
+    {
+      "text": "Manager reports that Arjun consistently underperforms compared to the team, seems disengaged, and rarely contributes in meetings.",
+      "source_ids": ["manager_D_1"],
+      "flag": {
+        "type": "unsupported_claim",
+        "reasoning": "No specific examples or evidence are cited, and the claim is directly contradicted by concrete data elsewhere: peer_E_1 and project_1 document a 42% page-load improvement and accessibility 71→96 that unblocked the Northstar deal; peer_F_1 and project_2 show Arjun closed the most bugs on the team (34) in March. This is also the only manager input (single_source_bias) and meeting_note_3 records limited manager face time since April, suggesting a visibility gap rather than a performance gap.",
+        "severity": "high"
+      }
+    },
+    {
+      "text": "Quiet in large meetings; peers note his contributions land more effectively in async channels.",
+      "source_ids": ["peer_G_1"],
+      "flag": null
+    }
+  ],
+  "impact_highlights": [
+    {
+      "text": "Dashboard redesign cited by sales as a factor in closing the Northstar enterprise deal.",
+      "source_ids": ["project_1", "peer_E_1"],
+      "flag": null
+    }
+  ],
+  "goal_progress": [
+    {
+      "text": "Goal 1 (ship dashboard redesign by end of Q2): completed, shipped 2026-05-20 with measured performance and accessibility gains.",
+      "source_ids": ["goal_1"],
+      "flag": null
+    },
+    {
+      "text": "Goal 2 (reduce frontend bug backlog by 25%): exceeded — backlog reduced 31%.",
+      "source_ids": ["goal_2"],
+      "flag": null
+    }
+  ],
+  "overall_bias_summary": "1 high-severity flag detected: the manager's negative assessment is unsupported, single-source, and contradicted by concrete peer feedback, goals, and project outcomes. All other points are well-evidenced. Recommend human review of the flagged growth-area claim before approval.",
+  "flag_counts": { "unsupported_claim": 1 },
+  "status": "pending_approval"
+}

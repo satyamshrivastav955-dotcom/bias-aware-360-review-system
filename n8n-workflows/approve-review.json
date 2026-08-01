@@ -1,0 +1,61 @@
+{
+  "name": "B - Approve Review",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "approve-review",
+        "responseMode": "responseNode",
+        "options": { "allowedOrigins": "*" }
+      },
+      "id": "wh-b1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "approve-review"
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = $json.body || $json;\nconst { report_id, action, reviewer, edited_fields } = b;\nif (!report_id) throw new Error('report_id required');\nif (!['approve','reject','edit'].includes(action)) throw new Error(`Invalid action: ${action}`);\nif (!reviewer) throw new Error('reviewer required');\nconst statusMap = { approve: 'approved', reject: 'rejected', edit: 'pending_approval' };\nreturn [{ json: {\n  report_id,\n  action,\n  reviewer,\n  new_status: statusMap[action],\n  edited_fields: edited_fields || null,\n  audit_entry: JSON.stringify({ timestamp: new Date().toISOString(), reviewer, action, changes: edited_fields || null })\n} }];"
+      },
+      "id": "code-validate",
+      "name": "Validate Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE reports SET\n  status = $2,\n  reviewer = $3,\n  approved_at = CASE WHEN $4 = 'approve' THEN now() ELSE approved_at END,\n  draft_json = CASE WHEN $5::jsonb IS NOT NULL THEN draft_json || $5::jsonb ELSE draft_json END,\n  edit_history = edit_history || $6::jsonb\nWHERE id = $1::uuid\nRETURNING id, employee_id, status, reviewer, approved_at, edit_history;",
+        "options": {
+          "queryReplacement": "={{ $json.report_id }},{{ $json.new_status }},{{ $json.reviewer }},{{ $json.action }},{{ $json.edited_fields ? JSON.stringify($json.edited_fields) : null }},{{ $json.audit_entry }}"
+        }
+      },
+      "id": "pg-update",
+      "name": "Update Report (Postgres)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ report_id: $json.id, employee_id: $json.employee_id, status: $json.status, reviewer: $json.reviewer, approved_at: $json.approved_at, edit_history: $json.edit_history }) }}",
+        "options": {}
+      },
+      "id": "respond-b",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [600, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Validate Request", "type": "main", "index": 0 }]] },
+    "Validate Request": { "main": [[{ "node": "Update Report (Postgres)", "type": "main", "index": 0 }]] },
+    "Update Report (Postgres)": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

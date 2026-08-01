@@ -1,0 +1,64 @@
+{
+  "employee_id": "emp_003",
+  "name": "Kavya Nair",
+  "role": "Data Analyst",
+  "self_assessment": "I had a good year. I worked on several dashboards and reports and collaborated well with stakeholders. I think I'm a strong team player and always willing to help out wherever needed.",
+  "manager_feedback": [
+    {
+      "id": "manager_H_1",
+      "reviewer": "Manager H",
+      "text": "Kavya is a great team player and a pleasure to work with. Always positive, always helpful. Really solid year overall.",
+      "date": "2026-06"
+    },
+    {
+      "id": "manager_H_2",
+      "reviewer": "Manager H",
+      "text": "Kavya has been doing well. Good energy, good attitude. Keep it up.",
+      "date": "2026-01"
+    }
+  ],
+  "peer_feedback": [
+    {
+      "id": "peer_I_1",
+      "reviewer": "Peer I (Rohan, Product Manager)",
+      "text": "Kavya is very responsive and nice to work with. Her reports are always delivered on time. A really valuable member of the team.",
+      "date": "2026-05"
+    },
+    {
+      "id": "peer_J_1",
+      "reviewer": "Peer J (Anita, Data Engineer)",
+      "text": "Kavya built the weekly churn dashboard that the exec team now uses every Monday. She also automated the manual CSV export process, which saves me about 3 hours a week.",
+      "date": "2026-04"
+    }
+  ],
+  "goals": [
+    {
+      "id": "goal_1",
+      "goal": "Improve reporting for the growth team",
+      "status": "completed",
+      "evidence": "Growth team dashboards delivered."
+    },
+    {
+      "id": "goal_2",
+      "goal": "Develop SQL and dbt skills",
+      "status": "in_progress",
+      "evidence": "Attending internal dbt workshops."
+    }
+  ],
+  "project_outcomes": [
+    {
+      "id": "project_1",
+      "project": "Churn dashboard",
+      "outcome": "Weekly churn dashboard adopted by exec team for Monday reviews; automated a manual CSV export saving ~3 hrs/week of data-engineering time."
+    },
+    {
+      "id": "project_2",
+      "project": "Quarterly growth reports",
+      "outcome": "Reports delivered each quarter. Feedback generally positive."
+    }
+  ],
+  "meeting_notes": [
+    "2026-03 1:1 — Discussed interest in moving toward analytics engineering; no concrete plan set yet.",
+    "2026-06 team retro — Kavya thanked for being helpful and flexible during the Q2 crunch."
+  ]
+}
