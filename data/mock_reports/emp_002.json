@@ -1,0 +1,126 @@
+{
+  "report_id": "b2e4790f-e13c-4416-afd6-7cbd4a265a31",
+  "employee_id": "emp_002",
+  "name": "Arjun Mehta",
+  "role": "Frontend Engineer",
+  "strengths": [
+    {
+      "text": "Arjun shipped the new analytics dashboard in Q1, which is now used by 40+ internal users daily.",
+      "source_ids": [
+        "self_1",
+        "goal_1",
+        "project_1"
+      ],
+      "flag": null
+    },
+    {
+      "text": "Arjun delivered the design-system component library on time in February, on schedule.",
+      "source_ids": [
+        "self_1",
+        "goal_2",
+        "project_2"
+      ],
+      "flag": null
+    },
+    {
+      "text": "Arjun single-handedly kept the frontend on track in June while covering for two people on leave, proactively flagging the release risk to QA a week early and re-scoping the sprint himself.",
+      "source_ids": [
+        "peer_B_1",
+        "note_1"
+      ],
+      "flag": null
+    }
+  ],
+  "growth_areas": [
+    {
+      "text": "Arjun lacks ownership and doesn't take initiative on the team's problems.",
+      "source_ids": [
+        "manager_A_1"
+      ],
+      "flag": {
+        "type": "single_source_bias",
+        "reasoning": "The claim from manager_A_1 is a subjective character judgment ('lacks ownership', 'doesn't take initiative') without any specific examples or incidents to support it.",
+        "severity": "high"
+      }
+    },
+    {
+      "text": "Arjun consistently misses deadlines. The June release slipped and it disrupted the QA schedule.",
+      "source_ids": [
+        "manager_A_2"
+      ],
+      "flag": {
+        "type": "contradiction",
+        "reasoning": "The claim 'Arjun consistently misses deadlines' is an unsupported generalization. While the June release did slip by 3 days (project_3, self_1), peer_B_1 states Arjun 'single-handedly kept the frontend on track... proactively flagging the release risk to QA a week early and re-scoped the sprint himself,' which contradicts the negative framing of the June slip as a failure to meet deadlines.",
+        "severity": "high"
+      }
+    },
+    {
+      "text": "Arjun needs to be more proactive and could improve his communication with stakeholders.",
+      "source_ids": [
+        "manager_A_3"
+      ],
+      "flag": {
+        "type": "vague_language",
+        "reasoning": "The feedback from manager_A_3 uses generic, non-specific language ('be more proactive', 'improve communication') without providing any concrete examples or incidents.",
+        "severity": "low"
+      }
+    },
+    {
+      "text": "In June, Arjun had a rough sprint while covering for two teammates on leave, and one release slipped by three days. He would like clearer priorities when covering multiple workstreams.",
+      "source_ids": [
+        "self_1",
+        "project_3",
+        "note_2"
+      ],
+      "flag": null
+    }
+  ],
+  "impact_highlights": [
+    {
+      "text": "The new analytics dashboard, shipped in Q1, is used by 40+ internal users daily and saved Peer B's team hours every week, replacing a manual weekly report.",
+      "source_ids": [
+        "self_1",
+        "peer_B_1",
+        "project_1"
+      ],
+      "flag": null
+    },
+    {
+      "text": "The design-system component library, delivered on February 25, 2026, was adopted by three product squads and reduced duplicated UI code.",
+      "source_ids": [
+        "goal_2",
+        "project_2"
+      ],
+      "flag": null
+    }
+  ],
+  "goal_progress": [
+    {
+      "text": "The goal to ship the internal analytics dashboard by end of Q1 was completed, launched on March 20, 2026, with 40+ daily active internal users by May.",
+      "source_ids": [
+        "goal_1",
+        "project_1"
+      ],
+      "flag": null
+    },
+    {
+      "text": "The goal to deliver the design-system component library by end of February was completed, delivered on February 25, 2026, on schedule.",
+      "source_ids": [
+        "goal_2",
+        "project_2"
+      ],
+      "flag": null
+    },
+    {
+      "text": "The goal to reduce frontend bundle size by 25% is in progress, with an 18% reduction achieved as of June, and remaining work scheduled for Q3.",
+      "source_ids": [
+        "goal_3"
+      ],
+      "flag": null
+    }
+  ],
+  "overall_bias_summary": "The review exhibits significant bias, primarily stemming from Manager A's feedback. All three negative points from Manager A were flagged for bias, including a high-severity single-source bias, a high-severity contradiction, and a low-severity vague language flag. In contrast, positive points were consistently well-supported by multiple objective sources and peer feedback, indicating an imbalance in how negative and positive performance aspects are evidenced.",
+  "status": "pending_approval",
+  "reviewer": null,
+  "approved_at": null
+}

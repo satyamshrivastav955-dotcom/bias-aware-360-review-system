@@ -4,7 +4,12 @@ import type { Claim, Report, SectionKey } from "@/lib/types";
 import { SECTIONS } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+// Two chained LLM calls run inside n8n. Locally that settles in 35-45s, but a
+// Gemini rate-limit retry pushes it past a 60s ceiling, so the route needs
+// Fluid compute's longer budget. The abort below stays under it deliberately —
+// our own 504 is styled and retryable; the platform's is a blank page.
+export const maxDuration = 300;
+const UPSTREAM_TIMEOUT_MS = 150_000;
 
 function normalize(raw: Record<string, unknown>, employeeId: string): Report {
   const sections = {} as Record<SectionKey, Claim[]>;
@@ -22,7 +27,10 @@ function normalize(raw: Record<string, unknown>, employeeId: string): Report {
     status: (raw.status as Report["status"]) ?? "pending_approval",
     reviewer: (raw.reviewer as string | null) ?? null,
     approved_at: (raw.approved_at as string | null) ?? null,
+    // Live n8n returns no created_at, so the arrival time is the honest stamp.
     created_at: String(raw.created_at ?? new Date().toISOString()),
+    name: raw.name as string | undefined,
+    role: raw.role as string | undefined,
   };
 }
 
@@ -52,14 +60,18 @@ export async function POST(req: Request) {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ employee_id }),
-      signal: AbortSignal.timeout(55_000),
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
 
     const raw = unwrapN8n(await parseBody(res));
 
     if (!res.ok || !raw) {
       return Response.json(
-        { error: `The review service returned ${res.status}.` },
+        {
+          error: res.ok
+            ? "The review service answered with nothing. It may be rate-limited — try again in a minute."
+            : `The review service returned ${res.status}.`,
+        },
         { status: 502 },
       );
     }
@@ -76,7 +88,7 @@ export async function POST(req: Request) {
     return Response.json(
       {
         error: timedOut
-          ? "The review service took longer than 55 seconds. Try again."
+          ? `The review service took longer than ${UPSTREAM_TIMEOUT_MS / 1000} seconds. Try again.`
           : "Could not reach the review service.",
       },
       { status: 504 },

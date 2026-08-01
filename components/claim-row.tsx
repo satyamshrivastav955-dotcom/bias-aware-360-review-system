@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Claim, Source } from "@/lib/types";
-import { FLAG_LABEL } from "@/lib/types";
+import { flagLabel } from "@/lib/types";
 
 const WASH = {
   high: "wash wash-high",
@@ -27,6 +27,7 @@ export default function ClaimRow({
   sources,
   canEdit,
   edited,
+  acknowledged,
   onChange,
   onCite,
 }: {
@@ -34,6 +35,7 @@ export default function ClaimRow({
   sources: Source[];
   canEdit: boolean;
   edited: boolean;
+  acknowledged: boolean;
   onChange: (text: string) => void;
   onCite: (s: Source) => void;
 }) {
@@ -117,7 +119,7 @@ export default function ClaimRow({
           <p
             className={`font-mono text-[11px] uppercase tracking-[0.12em] ${SEVERITY_INK[flag.severity]}`}
           >
-            {FLAG_LABEL[flag.type]} &middot; {flag.severity}
+            {flagLabel(flag.type)} &middot; {flag.severity}
           </p>
           <p className="mt-2 text-[13px] leading-relaxed text-graphite">
             {flag.reasoning}
@@ -125,6 +127,11 @@ export default function ClaimRow({
           {edited && (
             <p className="mt-3 border-t border-rule pt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-graphite">
               Amended after this audit &mdash; not re-checked
+            </p>
+          )}
+          {acknowledged && !edited && (
+            <p className="mt-3 border-t border-rule pt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-graphite">
+              Acknowledged as written
             </p>
           )}
         </aside>

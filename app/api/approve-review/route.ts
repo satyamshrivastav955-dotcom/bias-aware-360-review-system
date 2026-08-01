@@ -6,18 +6,11 @@ export const maxDuration = 60;
 
 type Body = {
   report_id?: string;
-  action?: "approve" | "reject" | "edit";
+  action?: "approved" | "rejected";
   reviewer?: string;
-  edited_fields?: EditedFields;
+  edits?: EditedFields;
+  acknowledged_refs?: string[];
 };
-
-// The status enum has no "edited" member — an edit leaves the report pending.
-const statusFor = (action: string): ReportStatus =>
-  action === "approve"
-    ? "approved"
-    : action === "reject"
-      ? "rejected"
-      : "pending_approval";
 
 export async function POST(req: Request) {
   const body = (await req.json()) as Body;
@@ -29,6 +22,9 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
+  if (action !== "approved" && action !== "rejected") {
+    return Response.json({ error: "invalid_action" }, { status: 400 });
+  }
 
   const base = webhookBase();
   const forceMock = new URL(req.url).searchParams.get("mock") === "1" || !base;
@@ -36,9 +32,9 @@ export async function POST(req: Request) {
   if (forceMock) {
     const res: ApproveResponse = {
       report_id,
-      status: statusFor(action),
+      status: action as ReportStatus,
       reviewer,
-      approved_at: action === "approve" ? new Date().toISOString() : null,
+      approved_at: action === "approved" ? new Date().toISOString() : null,
     };
     return Response.json(res);
   }
@@ -53,18 +49,41 @@ export async function POST(req: Request) {
 
     const raw = unwrapN8n(await parseBody(res));
 
-    if (!res.ok) {
+    // n8n's Respond node reports the real status in the body as well as in the
+    // HTTP status. Trust whichever one indicates a failure.
+    const status = Number(raw?.__http_status ?? res.status);
+
+    // The human-in-the-loop guard. Pass it through verbatim — the UI needs
+    // every unresolved flag to tell the reviewer exactly what to address.
+    if (status === 422) return Response.json(raw, { status: 422 });
+
+    if (status === 404) {
       return Response.json(
-        { error: `The review service returned ${res.status}.` },
+        {
+          error:
+            "This report is no longer on the server. Draft it again before approving.",
+        },
+        { status: 404 },
+      );
+    }
+    if (status === 409) {
+      return Response.json(
+        { error: "This report was already finalized. Reload to see it." },
+        { status: 409 },
+      );
+    }
+    if (status >= 400 || !raw) {
+      return Response.json(
+        { error: `The review service returned ${status}.` },
         { status: 502 },
       );
     }
 
     const merged: ApproveResponse = {
-      report_id: String(raw?.report_id ?? report_id),
-      status: (raw?.status as ReportStatus) ?? statusFor(action),
-      reviewer: String(raw?.reviewer ?? reviewer),
-      approved_at: (raw?.approved_at as string | null) ?? null,
+      report_id: String(raw.report_id ?? report_id),
+      status: (raw.status as ReportStatus) ?? (action as ReportStatus),
+      reviewer: String(raw.reviewer ?? reviewer),
+      approved_at: (raw.approved_at as string | null) ?? null,
     };
     return Response.json(merged);
   } catch {

@@ -1,0 +1,142 @@
+{
+  "report_id": "f1790b38-2227-4719-86d4-a47f6f43f7a8",
+  "employee_id": "emp_001",
+  "name": "Priya Sharma",
+  "role": "Senior Backend Engineer",
+  "strengths": [
+    {
+      "text": "Demonstrated exceptional technical leadership and project delivery by leading the migration of the payments service, which was delivered two weeks ahead of schedule with zero rollback incidents.",
+      "source_ids": [
+        "self_1",
+        "manager_A_1",
+        "goal_1",
+        "project_1"
+      ],
+      "flag": null
+    },
+    {
+      "text": "Provided strong mentorship and team development, successfully mentoring two junior engineers (Rohan and Meera) through their first production launches.",
+      "source_ids": [
+        "self_1",
+        "peer_C_1",
+        "goal_2"
+      ],
+      "flag": null
+    },
+    {
+      "text": "Her code reviews are the most thorough on the team, exemplified by catching a race condition in PR #892 that would have caused duplicate charges.",
+      "source_ids": [
+        "peer_B_1"
+      ],
+      "flag": null
+    },
+    {
+      "text": "Proactively shared knowledge by running a lunch-and-learn on Postgres locking in May that the whole team attended.",
+      "source_ids": [
+        "peer_B_1"
+      ],
+      "flag": null
+    }
+  ],
+  "growth_areas": [
+    {
+      "text": "Sometimes takes on too much herself instead of delegating, for example, personally rewrote the retry logic in April rather than handing it to Rohan, who was available.",
+      "source_ids": [
+        "manager_A_2"
+      ],
+      "flag": null
+    },
+    {
+      "text": "Her calendar is so full it can take 2-3 days to get review time on non-urgent PRs.",
+      "source_ids": [
+        "peer_C_1"
+      ],
+      "flag": null
+    },
+    {
+      "text": "Expressed a desire to grow system design skills further and take on more cross-team architecture work next cycle.",
+      "source_ids": [
+        "self_1"
+      ],
+      "flag": null
+    },
+    {
+      "text": "Agreed in a 1:1 on 2026-05-12 to route at least one meaty task per sprint to Rohan to improve delegation.",
+      "source_ids": [
+        "note_1"
+      ],
+      "flag": null
+    }
+  ],
+  "impact_highlights": [
+    {
+      "text": "Led the migration of the payments service from the legacy monolith to a dedicated microservice, cutting p95 checkout latency from 1.8s to 640ms, and delivered it on June 14, 2026, two weeks ahead of schedule with zero rollback incidents.",
+      "source_ids": [
+        "self_1",
+        "manager_A_1",
+        "goal_1",
+        "project_1"
+      ],
+      "flag": null
+    },
+    {
+      "text": "Drove the database sharding proposal in Q1, presented trade-offs to the platform guild in February, and secured sign-off from the Payments, Ledger, and Platform teams for RFC-118.",
+      "source_ids": [
+        "manager_A_2",
+        "goal_3",
+        "project_2"
+      ],
+      "flag": null
+    },
+    {
+      "text": "Her runbook and on-call documentation for the payments microservice were adopted as the team template, which contributed to diagnosing the connection-pool exhaustion in INC-4211 in under 20 minutes.",
+      "source_ids": [
+        "manager_A_1",
+        "note_2"
+      ],
+      "flag": null
+    },
+    {
+      "text": "As an onboarding mentor, she paired with Meera Iyer twice a week for her first two months and let Meera lead the deploy of the webhook-retry feature in April while shadowing.",
+      "source_ids": [
+        "self_1",
+        "peer_C_1",
+        "goal_2"
+      ],
+      "flag": null
+    }
+  ],
+  "goal_progress": [
+    {
+      "text": "Completed the goal to migrate the payments service off the monolith by end of Q2, shipping it on June 14, 2026, two weeks ahead of the June 30 target, reducing p95 latency from 1.8s to 640ms with zero rollbacks.",
+      "source_ids": [
+        "self_1",
+        "goal_1",
+        "project_1"
+      ],
+      "flag": null
+    },
+    {
+      "text": "Completed the goal to mentor two junior engineers to independent production ownership, with Rohan and Meera each leading a production launch (April webhook-retry, May reconciliation job) with Priya as shadow reviewer.",
+      "source_ids": [
+        "self_1",
+        "goal_2",
+        "peer_C_1"
+      ],
+      "flag": null
+    },
+    {
+      "text": "Completed the goal to publish the database sharding design and get cross-team sign-off, with RFC-118 approved by the platform guild in February 2026 and sign-off from Payments, Ledger, and Platform teams.",
+      "source_ids": [
+        "manager_A_2",
+        "goal_3",
+        "project_2"
+      ],
+      "flag": null
+    }
+  ],
+  "overall_bias_summary": "This performance review appears to be fair and well-supported. All points, including growth areas, are backed by specific examples, objective data (goals, project outcomes), or direct quotes from the employee. There are no instances of unsupported claims, recency bias, single-source bias (as all single-source claims had concrete examples), vague language, or contradictions. The sources are balanced across different reviewers and time periods, contributing to a comprehensive assessment.",
+  "status": "pending_approval",
+  "reviewer": null,
+  "approved_at": null
+}

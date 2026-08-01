@@ -1,7 +1,11 @@
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 
+// Drives the whole reviewer journey against whatever backend is configured.
+// With N8N_WEBHOOK_URL set this hits live n8n, so generate can take ~40s.
 const BASE = process.env.BASE ?? "http://localhost:3001";
+const GEN_TIMEOUT = 90_000;
+
 mkdirSync("shots", { recursive: true });
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
@@ -9,61 +13,88 @@ const errs = [];
 page.on("console", (m) => m.type() === "error" && errs.push(m.text()));
 page.on("pageerror", (e) => errs.push(String(e)));
 
+const shot = (n) => page.screenshot({ path: `shots/${n}.png`, fullPage: true });
+
 await page.goto(`${BASE}/review/emp_002?reset=1`, { waitUntil: "networkidle" });
 await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
-await page.screenshot({ path: "shots/1-home.png", fullPage: true });
+await shot("1-home");
 
-await page.click("text=Rohan Verma");
+await page.getByRole("link", { name: /Arjun Mehta/ }).click();
 await page.waitForURL("**/review/emp_002");
-await page.screenshot({ path: "shots/2-empty.png", fullPage: true });
+await shot("2-empty");
 
-await page.click("text=Draft the review");
+await page.getByRole("button", { name: "Draft the review" }).click();
 await page.waitForTimeout(900);
 await page.screenshot({ path: "shots/3-loading.png" });
-await page.waitForSelector("text=Bias audit", { timeout: 15000 });
-await page.waitForTimeout(500);
-await page.screenshot({ path: "shots/4-report.png", fullPage: true });
+await page.waitForSelector("text=Bias audit", { timeout: GEN_TIMEOUT });
+await page.waitForTimeout(400);
+await shot("4-report");
 
-const flagged = page.locator(".claim-grid").filter({ hasText: "Unsupported claim" }).first();
+// The signature element: a flagged claim with its reasoning in the margin.
+const flagged = page.locator(".claim-grid").filter({ hasText: "·" }).first();
 await flagged.scrollIntoViewIfNeeded();
 await page.waitForTimeout(200);
-await page.screenshot({ path: "shots/5-signature.png", clip: await flagged.boundingBox() });
+await page.screenshot({
+  path: "shots/5-signature.png",
+  clip: await flagged.boundingBox(),
+});
 
-await page.click("text=manager_A_1 >> nth=0");
-await page.waitForTimeout(400);
+// Citation drawer: the raw source behind a claim.
+await page.locator("button", { hasText: /^manager_A_1$/ }).first().click();
+await page.waitForSelector("text=Manager feedback", { timeout: 5000 });
 await page.screenshot({ path: "shots/6-drawer.png" });
 await page.keyboard.press("Escape");
 
-await page.click("text=manager_A_3");
-await page.waitForTimeout(400);
-await page.screenshot({ path: "shots/7-unresolved.png" });
-await page.keyboard.press("Escape");
-
-// Amend a flagged claim -> the margin note must say it wasn't re-checked.
+// Amend one flagged claim — resolves that flag and creates a diff.
 await flagged.scrollIntoViewIfNeeded();
 await flagged.getByRole("button", { name: "Amend" }).click();
-await page.keyboard.type(" Reviewed against project evidence.");
+await page.keyboard.type(" Peer evidence records the opposite; discuss in a 1:1.");
 await page.keyboard.press("Tab");
 await page.waitForTimeout(300);
-await page.screenshot({ path: "shots/9-amended.png", clip: await flagged.boundingBox() });
+await page.screenshot({
+  path: "shots/7-amended.png",
+  clip: await flagged.boundingBox(),
+});
 
-await page.click("text=Approve with edits");
-await page.waitForSelector("text=no further action", { timeout: 10000 });
+// The guard: approval is refused while high-severity flags are unaddressed.
+await page.getByRole("button", { name: /^Approve/ }).click();
+await page.waitForSelector("text=Approval refused", { timeout: 30_000 });
 await page.waitForTimeout(300);
-await page.screenshot({ path: "shots/10-approved.png" });
+await shot("8-blocked");
+
+const ackButtons = page.getByRole("button", { name: "Acknowledge as written" });
+const n = await ackButtons.count();
+console.log("unresolved flags presented:", n);
+for (let i = 0; i < n; i++) await ackButtons.nth(0).click();
+await page.waitForTimeout(300);
+await shot("9-acknowledged");
+
+await page.getByRole("button", { name: /^Approve/ }).click();
+await page.waitForSelector("text=no further action", { timeout: 30_000 });
+await page.waitForTimeout(300);
+await shot("10-approved");
 
 await page.goto(`${BASE}/audit/emp_002`, { waitUntil: "networkidle" });
-await page.screenshot({ path: "shots/11-audit.png", fullPage: true });
+await page.waitForTimeout(1500);
+await shot("11-audit");
+console.log(
+  "audit read from server:",
+  (await page.locator("text=Read from the review service").count()) === 1,
+);
 
 // Refresh-survival.
 await page.goto(`${BASE}/review/emp_002`, { waitUntil: "networkidle" });
-await page.waitForTimeout(400);
-const survived = await page.locator("text=Bias audit").count();
-console.log("report survived refresh:", survived === 1);
+await page.waitForTimeout(500);
+console.log(
+  "report survived refresh:",
+  (await page.locator("text=Bias audit").count()) === 1,
+);
 
 await page.setViewportSize({ width: 390, height: 900 });
 await page.waitForTimeout(300);
-await page.screenshot({ path: "shots/8-mobile.png", fullPage: true });
+await shot("12-mobile");
 
-console.log(errs.length ? "CONSOLE ERRORS:\n" + errs.join("\n") : "no console errors");
+console.log(
+  errs.length ? "CONSOLE ERRORS:\n" + errs.join("\n") : "no console errors",
+);
 await browser.close();

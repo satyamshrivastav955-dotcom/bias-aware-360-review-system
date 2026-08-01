@@ -14,10 +14,11 @@ for (const f of [...emp.manager_feedback, ...emp.peer_feedback])
 for (const g of emp.goals) assert.ok(map[g.id].text.includes(g.goal));
 for (const p of emp.project_outcomes) assert.ok(map[p.id].text.includes(p.project));
 
-// The two ids schema v1.0 omits.
-assert.equal(map.self_assessment.text, emp.self_assessment);
-assert.equal(map.meeting_note_1.text, emp.meeting_notes[0]);
-assert.equal(map[`meeting_note_${emp.meeting_notes.length}`].kind, "meeting");
+// The two ids the employee file has no field for. These must match the
+// backend's "Build synthesis prompt" node exactly.
+assert.equal(map.self_1.text, emp.self_assessment);
+assert.equal(map.note_1.text, emp.meeting_notes[0]);
+assert.equal(map[`note_${emp.meeting_notes.length}`].kind, "meeting");
 
 // A citation with no matching source degrades instead of throwing.
 const ghost = resolveSource(map, "manager_A_99");
@@ -35,8 +36,10 @@ for (const e of employees) {
   assert.equal(new Set(ids).size, ids.length, `duplicate id in ${e.employee_id}`);
 }
 
-// Fixtures must cite reachable sources, except the one planted dangler that
-// exercises the unresolved path during the demo.
+// The fixtures are real backend captures, so this is the contract test: every
+// id the LLM emitted must resolve locally. A failure here means the frontend's
+// id convention has drifted from the workflow's, and citations will render
+// unresolved in the demo.
 const dangling: string[] = [];
 for (const e of employees) {
   const r = mockReport(e.employee_id)!;
@@ -46,6 +49,6 @@ for (const e of employees) {
       for (const sid of c.source_ids)
         if (!m[sid]) dangling.push(`${e.employee_id}:${sid}`);
 }
-assert.deepEqual(dangling, ["emp_002:manager_A_3"], `unexpected dangling: ${dangling}`);
+assert.deepEqual(dangling, [], `unresolvable citations: ${dangling}`);
 
 console.log("sources: ok");

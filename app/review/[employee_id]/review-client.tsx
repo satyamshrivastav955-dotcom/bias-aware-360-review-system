@@ -16,6 +16,9 @@ import {
 import {
   REVIEWER,
   SECTIONS,
+  flagLabel,
+  pointRef,
+  type ApproveBlocked,
   type ApproveResponse,
   type Claim,
   type EditedFields,
@@ -36,6 +39,8 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [drawer, setDrawer] = useState<Source | null>(null);
+  const [blocked, setBlocked] = useState<ApproveBlocked | null>(null);
+  const [acked, setAcked] = useState<string[]>([]);
 
   const id = employee.employee_id;
   const sourceMap = useMemo(() => buildSourceMap(employee), [employee]);
@@ -120,14 +125,17 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
   }
 
   function editClaim(key: SectionKey, index: number, text: string) {
-    setReport((prev) =>
-      prev
-        ? {
-            ...prev,
-            [key]: prev[key].map((c, i) => (i === index ? { ...c, text } : c)),
-          }
-        : prev,
-    );
+    setReport((prev) => {
+      if (!prev) return prev;
+      const next = {
+        ...prev,
+        [key]: prev[key].map((c, i) => (i === index ? { ...c, text } : c)),
+      };
+      // The backend has no "save draft" action, so edits persist locally as
+      // they are typed. Without this a refresh would silently discard them.
+      saveReport(id, next);
+      return next;
+    });
   }
 
   function changedSections(): EditedFields {
@@ -157,10 +165,11 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
     );
   }
 
-  async function submit(action: "edit" | "approve" | "reject") {
+  async function submit(action: "approved" | "rejected") {
     if (!report) return;
     setBusy(true);
     setError(null);
+    setBlocked(null);
 
     const fields = changedSections();
     const carriesEdits = Object.keys(fields).length > 0;
@@ -173,10 +182,18 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
           report_id: report.report_id,
           action,
           reviewer: REVIEWER,
-          ...(carriesEdits ? { edited_fields: fields } : {}),
+          ...(carriesEdits ? { edits: fields } : {}),
+          ...(acked.length ? { acknowledged_refs: acked } : {}),
         }),
       });
       const data = await res.json();
+
+      // Not an error — the server is refusing to finalize a review whose
+      // high-severity flags nobody has dealt with. Show what must be addressed.
+      if (res.status === 422) {
+        setBlocked(data as ApproveBlocked);
+        return;
+      }
       if (!res.ok) throw new Error(data.error ?? "The service rejected the request.");
 
       // Only now is it safe to write locally. An optimistic update here would
@@ -193,19 +210,22 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
       saveReport(id, next);
       saveOriginal(id, next);
 
+      const verb = action === "approved" ? "Approved" : "Rejected";
+      const notes = [
+        carriesEdits ? `edits to ${diffSummary(fields)}` : null,
+        acked.length
+          ? `${acked.length} flag${acked.length === 1 ? "" : "s"} acknowledged`
+          : null,
+      ].filter(Boolean);
+
       appendAudit(id, {
         ts: new Date().toISOString(),
         reviewer: REVIEWER,
         action,
         report_id: report.report_id,
-        summary:
-          action === "edit"
-            ? `Edited ${diffSummary(fields)}`
-            : carriesEdits
-              ? `${action === "approve" ? "Approved" : "Rejected"} with edits to ${diffSummary(fields)}`
-              : action === "approve"
-                ? "Approved as drafted"
-                : "Rejected as drafted",
+        summary: notes.length
+          ? `${verb} with ${notes.join(" and ")}`
+          : `${verb} as drafted`,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
@@ -280,6 +300,59 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
         </div>
       )}
 
+      {blocked && (
+        <section className="no-print mt-10 border-2 border-pen bg-sheet p-7">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.16em] text-pen">
+            Approval refused &middot; {blocked.unresolved_count} high-severity
+            flag
+            {blocked.unresolved_count === 1 ? "" : "s"} unaddressed
+          </h2>
+          <p className="mt-3 max-w-3xl text-[15px] leading-relaxed">
+            {blocked.detail}
+          </p>
+
+          <ul className="mt-6 divide-y divide-rule border-t border-rule">
+            {blocked.unresolved.map((u) => {
+              const done = acked.includes(u.point_ref);
+              return (
+                <li key={u.point_ref} className="py-5">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-graphite">
+                    {u.point_ref} &middot; {flagLabel(u.type)}
+                  </p>
+                  <p className="mt-2 text-[16px] leading-relaxed">{u.text}</p>
+                  <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-graphite">
+                    {u.reasoning}
+                  </p>
+                  <button
+                    type="button"
+                    disabled={done || busy}
+                    onClick={() => {
+                      setAcked((p) => [...p, u.point_ref]);
+                      appendAudit(id, {
+                        ts: new Date().toISOString(),
+                        reviewer: REVIEWER,
+                        action: "acknowledged",
+                        report_id: report!.report_id,
+                        summary: `Acknowledged ${flagLabel(u.type).toLowerCase()} at ${u.point_ref} without amending it`,
+                      });
+                    }}
+                    className="mt-4 border border-ink px-4 py-2 font-mono text-[11px] uppercase tracking-[0.14em] enabled:hover:bg-ink enabled:hover:text-sheet disabled:border-rule disabled:text-graphite"
+                  >
+                    {done ? "Acknowledged" : "Acknowledge as written"}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+
+          <p className="mt-5 max-w-3xl font-mono text-[10px] leading-relaxed uppercase tracking-[0.12em] text-graphite">
+            Amend a claim to resolve its flag, or acknowledge it to approve the
+            wording as it stands. Either way the choice is recorded against your
+            name.
+          </p>
+        </section>
+      )}
+
       {report && (
         <>
         <div className="mt-12 border border-rule bg-sheet px-7 py-10 md:px-12 md:py-14">
@@ -337,6 +410,7 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
                       sources={claimSources(claim)}
                       canEdit={canEdit}
                       edited={claim.text !== original?.[key][i]?.text}
+                      acknowledged={acked.includes(pointRef(key, i))}
                       onChange={(text) => editClaim(key, i, text)}
                       onCite={setDrawer}
                     />
@@ -352,22 +426,16 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
               <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-graphite">
                 {locked
                   ? `${report.status.replace("_", " ")} · no further action`
-                  : dirty
-                    ? "Unsaved edits"
-                    : "Awaiting your decision"}
+                  : busy
+                    ? "Sending…"
+                    : dirty
+                      ? "Edits ready to send"
+                      : "Awaiting your decision"}
               </p>
               <div className="flex flex-wrap gap-3">
                 <button
                   type="button"
-                  onClick={() => submit("edit")}
-                  disabled={!dirty || busy || locked}
-                  className="border border-rule px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.14em] enabled:hover:border-ink disabled:opacity-35"
-                >
-                  Save edits
-                </button>
-                <button
-                  type="button"
-                  onClick={() => submit("reject")}
+                  onClick={() => submit("rejected")}
                   disabled={busy || locked}
                   className="border border-pen px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.14em] text-pen enabled:hover:bg-pen enabled:hover:text-sheet disabled:opacity-35"
                 >
@@ -375,7 +443,7 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => submit("approve")}
+                  onClick={() => submit("approved")}
                   disabled={busy || locked}
                   className="bg-ink px-6 py-2.5 font-mono text-[11px] uppercase tracking-[0.14em] text-sheet enabled:hover:bg-black disabled:opacity-35"
                 >

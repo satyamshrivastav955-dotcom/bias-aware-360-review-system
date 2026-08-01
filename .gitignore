@@ -29,6 +29,7 @@ node_modules/
 .next/
 out/
 playwright-report/
+.tmp/
 .vercel/
 *.tsbuildinfo
 next-env.d.ts
@@ -49,3 +50,5 @@ Thumbs.db
 [Dd]esktop.ini
 $RECYCLE.BIN/
 
+.vercel
+.env*
