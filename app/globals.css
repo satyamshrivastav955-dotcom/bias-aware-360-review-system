@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #e9eaec;
+  --color-sheet: #fbfbfc;
+  --color-ink: #16202b;
+  --color-graphite: #6b7785;
+  --color-rule: #c9cdd3;
+  --color-pen: #d6303a;
+  --color-amber: #f2c14e;
+
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-body: var(--font-newsreader), Georgia, serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+}
+
+html {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+::selection {
+  background: var(--color-ink);
+  color: var(--color-sheet);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+/* The signature element: a marker wash behind flagged claim text.
+   box-decoration-break keeps it as separate bands per line instead of
+   one stretched box across a wrapped claim. */
+.wash {
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  padding: 0.1em 0.15em;
+  margin: 0 -0.15em;
+  border-radius: 1px;
+}
+.wash-high {
+  background: rgba(214, 48, 58, 0.18);
+  box-shadow: inset 0 -1px 0 rgba(214, 48, 58, 0.45);
+}
+.wash-medium {
+  background: rgba(242, 193, 78, 0.32);
+  box-shadow: inset 0 -1px 0 rgba(242, 193, 78, 0.7);
+}
+.wash-low {
+  background: rgba(107, 119, 133, 0.16);
+  box-shadow: inset 0 -1px 0 rgba(107, 119, 133, 0.35);
+}
+
+/* Manuscript grid: claim | gutter | margin apparatus.
+   The connector rule is drawn across the gutter by the margin cell. */
+.claim-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem 0;
+  align-items: start;
+}
+.margin-note {
+  position: relative;
+}
+
+@media (min-width: 900px) {
+  .claim-grid {
+    grid-template-columns: minmax(0, 1fr) 40px 260px;
+  }
+  .margin-note {
+    grid-column: 3;
+  }
+  .margin-note::before {
+    content: "";
+    position: absolute;
+    top: 0.7em;
+    left: -40px;
+    width: 40px;
+    border-top: 1px solid var(--color-rule);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 0.4s ease-out both;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  html,
+  body {
+    background: #fff;
+  }
+}
