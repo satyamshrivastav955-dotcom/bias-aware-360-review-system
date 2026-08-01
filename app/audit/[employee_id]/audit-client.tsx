@@ -161,7 +161,6 @@ export default function AuditClient({ employee }: { employee: Employee }) {
           ))}
         </ol>
       )}
-      )}
     </main>
   );
 }

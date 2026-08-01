@@ -381,6 +381,7 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
                         sources={claimSources(claim)}
                         canEdit={canEdit}
                         edited={claim.text !== original?.[key][i]?.text}
+                        acknowledged={acked.includes(pointRef(key, i))}
                         onChange={(text) => editClaim(key, i, text)}
                         onCite={setDrawer}
                       />
