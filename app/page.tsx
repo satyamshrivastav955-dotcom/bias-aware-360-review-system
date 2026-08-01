@@ -4,66 +4,76 @@ import { REVIEWER } from "@/lib/types";
 
 export default function Home() {
   return (
-    <main className="mx-auto max-w-5xl px-6 py-16 md:py-24">
-      <header className="mb-16 border-b border-rule pb-10">
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-graphite">
-          Review cycle H1 2026 &middot; signed in as {REVIEWER}
-        </p>
-        <h1 className="mt-5 max-w-2xl font-display text-4xl leading-[1.1] font-semibold tracking-tight md:text-5xl">
-          Every claim carries its evidence.
+    <main className="mx-auto max-w-6xl px-6 py-10">
+      <header className="mb-10 rounded-xl border border-slate-200 bg-white p-8 shadow-xs">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          <span className="font-mono text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Review Cycle H1 2026
+          </span>
+          <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+            Reviewer: {REVIEWER}
+          </span>
+        </div>
+        <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900">
+          Bias-Aware 360° Review System
         </h1>
-        <p className="mt-5 max-w-xl text-graphite">
-          Draft a 360&deg; review from the feedback on file. Each statement is
-          cited back to a source, audited for bias, and held for your approval
-          before it becomes final.
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
+          Synthesize 360-degree feedback into evidence-cited performance reviews with automated bias detection and mandatory human-in-the-loop approval.
         </p>
       </header>
 
-      <h2 className="mb-6 font-mono text-[11px] uppercase tracking-[0.18em] text-graphite">
-        {employees.length} reviews awaiting draft
-      </h2>
+      <div className="mb-6 flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
+          Select Employee ({employees.length} Pending Draft)
+        </h2>
+      </div>
 
-      <ul className="grid gap-px border border-rule bg-rule sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {employees.map((e) => (
-          <li key={e.employee_id}>
-            <Link
-              href={`/review/${e.employee_id}`}
-              className="group flex h-full flex-col bg-sheet p-7 transition-colors hover:bg-white"
-            >
-              <span className="font-mono text-[11px] tracking-wider text-graphite">
-                {e.employee_id}
-              </span>
-              <span className="mt-4 font-display text-2xl leading-tight font-semibold">
+          <Link
+            key={e.employee_id}
+            href={`/review/${e.employee_id}`}
+            className="group flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-6 shadow-xs transition-all hover:border-slate-300 hover:shadow-md"
+          >
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs font-medium text-slate-600">
+                  {e.employee_id}
+                </span>
+                <span className="text-xs text-slate-400">Ready</span>
+              </div>
+              <h3 className="mt-3 text-xl font-bold text-slate-900 group-hover:text-blue-600">
                 {e.name}
-              </span>
-              <span className="mt-1 text-[15px] text-graphite">{e.role}</span>
+              </h3>
+              <p className="text-xs font-medium text-slate-500">{e.role}</p>
 
-              <dl className="mt-7 space-y-1.5 border-t border-rule pt-5 font-mono text-[11px] text-graphite">
+              <div className="mt-6 space-y-2 border-t border-slate-100 pt-4 text-xs text-slate-600">
                 <div className="flex justify-between">
-                  <dt>manager notes</dt>
-                  <dd>{e.manager_feedback.length}</dd>
+                  <span className="text-slate-500">Manager Feedback</span>
+                  <span className="font-semibold text-slate-800">{e.manager_feedback.length} entries</span>
                 </div>
                 <div className="flex justify-between">
-                  <dt>peer notes</dt>
-                  <dd>{e.peer_feedback.length}</dd>
+                  <span className="text-slate-500">Peer Feedback</span>
+                  <span className="font-semibold text-slate-800">{e.peer_feedback.length} entries</span>
                 </div>
                 <div className="flex justify-between">
-                  <dt>goals</dt>
-                  <dd>{e.goals.length}</dd>
+                  <span className="text-slate-500">Goals Defined</span>
+                  <span className="font-semibold text-slate-800">{e.goals.length} items</span>
                 </div>
                 <div className="flex justify-between">
-                  <dt>projects</dt>
-                  <dd>{e.project_outcomes.length}</dd>
+                  <span className="text-slate-500">Project Outcomes</span>
+                  <span className="font-semibold text-slate-800">{e.project_outcomes.length} projects</span>
                 </div>
-              </dl>
+              </div>
+            </div>
 
-              <span className="mt-7 font-mono text-[11px] uppercase tracking-[0.14em] text-ink underline decoration-rule underline-offset-4 group-hover:decoration-ink">
-                Open review &rarr;
-              </span>
-            </Link>
-          </li>
+            <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4 text-xs font-semibold text-blue-600 group-hover:underline">
+              <span>Open Review Workspace</span>
+              <span>&rarr;</span>
+            </div>
+          </Link>
         ))}
-      </ul>
+      </div>
     </main>
   );
 }
