@@ -4,22 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import type { Claim, Source } from "@/lib/types";
 import { flagLabel } from "@/lib/types";
 
-const WASH = {
-  high: "wash wash-high",
-  medium: "wash wash-medium",
-  low: "wash wash-low",
-} as const;
-
-const SEVERITY_INK = {
-  high: "text-pen",
-  medium: "text-[#8a6a12]",
-  low: "text-graphite",
-} as const;
-
-const SEVERITY_BORDER = {
-  high: "border-pen",
-  medium: "border-amber",
-  low: "border-rule",
+const SEVERITY_BADGE = {
+  high: "bg-rose-50 border-rose-200 text-rose-800",
+  medium: "bg-amber-50 border-amber-200 text-amber-800",
+  low: "bg-slate-50 border-slate-200 text-slate-700",
 } as const;
 
 export default function ClaimRow({
@@ -56,85 +44,90 @@ export default function ClaimRow({
   }, [canEdit]);
 
   return (
-    <div className="claim-grid py-6">
-      <div className="min-w-0">
-        {editing ? (
-          <textarea
-            ref={ref}
-            value={claim.text}
-            onChange={(e) => {
-              onChange(e.target.value);
-              e.target.style.height = "auto";
-              e.target.style.height = `${e.target.scrollHeight}px`;
-            }}
-            onBlur={() => setEditing(false)}
-            aria-label="Amend this claim"
-            className="w-full resize-none border-l-2 border-ink bg-white/60 py-1 pl-3 text-[17px] leading-relaxed focus:outline-none"
-          />
-        ) : (
-          <p className="group text-[17px] leading-relaxed">
-            <span className={flag ? WASH[flag.severity] : ""}>{claim.text}</span>
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="no-print ml-2 align-baseline font-mono text-[10px] uppercase tracking-[0.12em] text-graphite underline decoration-rule underline-offset-4 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:text-ink hover:decoration-ink"
-              >
-                Amend
-              </button>
-            )}
-          </p>
-        )}
-
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          {sources.map((s) => {
-            const missing = s.kind === "unresolved";
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => onCite(s)}
-                title={missing ? "No matching source on file" : "View the source"}
-                className={`px-2 py-1 font-mono text-[11px] transition-colors ${
-                  missing
-                    ? "border border-dashed border-pen text-pen hover:bg-pen/10"
-                    : "border border-rule text-graphite hover:border-ink hover:text-ink"
-                }`}
-              >
-                {missing ? "? " : ""}
-                {s.id}
-              </button>
-            );
-          })}
-          {sources.length === 0 && (
-            <span className="font-mono text-[11px] text-pen">no citation</span>
+    <div className="rounded-lg border border-slate-200 bg-white p-4 transition-all hover:border-slate-300">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          {editing ? (
+            <textarea
+              ref={ref}
+              value={claim.text}
+              onChange={(e) => {
+                onChange(e.target.value);
+                e.target.style.height = "auto";
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              onBlur={() => setEditing(false)}
+              aria-label="Amend this claim"
+              className="w-full resize-none rounded-md border border-blue-500 bg-slate-50 p-3 text-sm leading-relaxed text-slate-900 focus:outline-none"
+            />
+          ) : (
+            <div className="group relative">
+              <p className="text-sm leading-relaxed text-slate-800">
+                {claim.text}
+              </p>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className="no-print mt-2 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                  Edit Claim
+                </button>
+              )}
+            </div>
           )}
+
+          {/* Sources */}
+          <div className="mt-3 flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100">
+            <span className="text-xs font-medium text-slate-400">Sources:</span>
+            {sources.map((s) => {
+              const missing = s.kind === "unresolved";
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => onCite(s)}
+                  title={missing ? "No matching source on file" : "View source details"}
+                  className={`rounded px-2 py-0.5 font-mono text-xs font-medium transition-colors ${
+                    missing
+                      ? "border border-dashed border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                      : "border border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900"
+                  }`}
+                >
+                  {missing ? "Unresolved: " : ""}
+                  {s.id}
+                </button>
+              );
+            })}
+            {sources.length === 0 && (
+              <span className="font-mono text-xs font-medium text-rose-600">No Citation Provided</span>
+            )}
+          </div>
         </div>
       </div>
 
+      {/* Flag Panel if present */}
       {flag && (
-        <aside
-          className={`margin-note border-l-2 pl-4 ${SEVERITY_BORDER[flag.severity]}`}
-        >
-          <p
-            className={`font-mono text-[11px] uppercase tracking-[0.12em] ${SEVERITY_INK[flag.severity]}`}
-          >
-            {flagLabel(flag.type)} &middot; {flag.severity}
-          </p>
-          <p className="mt-2 text-[13px] leading-relaxed text-graphite">
+        <div className={`mt-3 rounded-md border p-3 ${SEVERITY_BADGE[flag.severity]}`}>
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-xs font-semibold uppercase tracking-wider">
+              Flag: {flagLabel(flag.type)} ({flag.severity} severity)
+            </span>
+          </div>
+          <p className="mt-1 text-xs leading-relaxed">
             {flag.reasoning}
           </p>
           {edited && (
-            <p className="mt-3 border-t border-rule pt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-graphite">
-              Amended after this audit &mdash; not re-checked
+            <p className="mt-2 border-t border-current/20 pt-1 font-mono text-[10px] uppercase tracking-wider opacity-80">
+              Claim amended by reviewer — flag invalidated
             </p>
           )}
           {acknowledged && !edited && (
-            <p className="mt-3 border-t border-rule pt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-graphite">
+            <p className="mt-2 border-t border-current/20 pt-1 font-mono text-[10px] uppercase tracking-wider opacity-80">
               Acknowledged as written
             </p>
           )}
-        </aside>
+        </div>
       )}
     </div>
   );
