@@ -138,8 +138,8 @@
       ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "z7UvYnCSLpskwvEP",
-          "name": "Gemini Key Bias"
+          "id": "uQfQOtV9li43gOUV",
+          "name": "Gemini Key Spare 2"
         }
       },
       "retryOnFail": true,
