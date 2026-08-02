@@ -1,4 +1,5 @@
-import { parseBody, unwrapN8n, webhookBase } from "@/lib/n8n";
+import { parseBody, scopeToEmployee, unwrapN8n, webhookBase } from "@/lib/n8n";
+import type { ServerAuditEntry } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -6,9 +7,11 @@ export const dynamic = "force-dynamic";
 // back to its local copy when this returns anything other than 200.
 export async function GET(req: Request) {
   const base = webhookBase();
+  const params = new URL(req.url).searchParams;
+  const employeeId = params.get("employee_id");
   if (!base) return Response.json({ entries: [] });
 
-  const reportId = new URL(req.url).searchParams.get("report_id");
+  const reportId = params.get("report_id");
   const url = `${base}/audit-trail${reportId ? `?report_id=${encodeURIComponent(reportId)}` : ""}`;
 
   try {
@@ -17,7 +20,9 @@ export async function GET(req: Request) {
     if (!res.ok || !Array.isArray(raw?.entries)) {
       return Response.json({ error: "audit_unavailable" }, { status: 502 });
     }
-    return Response.json({ entries: raw.entries });
+    return Response.json({
+      entries: scopeToEmployee(raw.entries as ServerAuditEntry[], employeeId),
+    });
   } catch {
     return Response.json({ error: "audit_unreachable" }, { status: 504 });
   }

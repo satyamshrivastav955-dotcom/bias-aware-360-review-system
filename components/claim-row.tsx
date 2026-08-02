@@ -103,6 +103,21 @@ export default function ClaimRow({
               <span className="font-mono text-xs font-medium text-rose-600">No Citation Provided</span>
             )}
           </div>
+
+          {/* On paper there is no drawer to click, so the cited text has to
+              travel with the claim or the printed report is unverifiable. */}
+          {sources.length > 0 && (
+            <dl className="mt-2 hidden print:block">
+              {sources.map((s) => (
+                <div key={s.id} className="mt-1 flex gap-2 text-[10px] leading-snug">
+                  <dt className="shrink-0 font-mono text-slate-500">{s.id}</dt>
+                  <dd className="text-slate-600">
+                    {s.kind === "unresolved" ? "No matching source on file." : `“${s.text}”${s.reviewer ? ` — ${s.reviewer}` : ""}`}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
         </div>
       </div>
 

@@ -71,13 +71,12 @@ export default function AuditClient({ employee }: { employee: Employee }) {
     let live = true;
     // Prefer the server's record: it is the authoritative one and carries the
     // before/after diff. The local copy is the offline fallback.
-    fetch("/api/audit-trail")
+    fetch(`/api/audit-trail?employee_id=${encodeURIComponent(id)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d: { entries: ServerAuditEntry[] }) => {
         if (!live) return;
-        const mine = d.entries.filter((e) => e.employee_id === id);
-        if (!mine.length) throw new Error("empty");
-        setRows(mine.map(fromServer));
+        if (!d.entries.length) throw new Error("empty");
+        setRows(d.entries.map(fromServer));
         setSource("server");
       })
       .catch(() => live && setRows(loadAudit(id).map(fromLocal).reverse()));

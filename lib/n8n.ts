@@ -29,3 +29,16 @@ export async function parseBody(res: Response): Promise<unknown> {
 
 export const webhookBase = () =>
   process.env.N8N_WEBHOOK_URL?.replace(/\/$/, "") || null;
+
+// The upstream webhook only filters by report_id, so scoping to one employee
+// has to happen on our side. Audit entries quote verbatim performance feedback
+// about a named person — returning the whole table and filtering in the browser
+// would hand every reviewer everyone else's file. Lives here, not in the route:
+// Next.js rejects a route module that exports anything but handlers.
+export function scopeToEmployee<T extends { employee_id: string }>(
+  entries: T[],
+  employeeId: string | null,
+): T[] {
+  if (!employeeId) return [];
+  return entries.filter((e) => e.employee_id === employeeId);
+}

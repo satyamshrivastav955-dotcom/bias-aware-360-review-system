@@ -1,22 +1,26 @@
+import Link from "next/link";
 import { AppHeader } from "@/components/app-header";
+import { employees } from "@/data/employees";
+import { buildSourceMap, KIND_LABEL } from "@/lib/sources";
 
-const submissions = [
-  ["Priya Sharma", "The Future of Backend Architecture: Scaling for Growth", "Aug 12, 2026", "Under Review", "High Priority"],
-  ["Rohan Verma", "User Research: Uncovering Bias in Product Design", "Aug 11, 2026", "Pending Audit", "Medium Priority"],
-  ["Anya Patel", "Ethical AI: A Framework for Content Moderation", "Aug 10, 2026", "New", "High Priority"],
-  ["David Lee", "Refactoring Legacy Code: Best Practices and Pitfalls", "Aug 09, 2026", "Approved", "Low Priority"],
-  ["Maria Garcia", "Accessibility in Modern Web Development", "Aug 08, 2026", "Changes Requested", "Medium Priority"],
-];
+// A "submission" here is one piece of feedback somebody filed about an
+// employee — the only thing in this product anyone actually submits.
+const rows = employees
+  .flatMap((e) =>
+    Object.values(buildSourceMap(e))
+      .filter((s) => s.reviewer)
+      .map((s) => ({ ...s, employee: e.name, employeeId: e.employee_id })),
+  )
+  .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
 
-const tone = (value: string) => value.toLowerCase().replaceAll(" ", "-");
+const tone = (kind: string) => (kind === "manager" ? "pending-audit" : kind === "peer" ? "under-review" : "new");
 
 export default function SubmissionsPage() {
   return <div className="app-shell"><AppHeader /><main className="submissions-layout">
     <section className="page-content">
-      <div className="page-intro"><div><h1>Editorial Submissions</h1></div><div className="cycle-card"><span>▣</span><div><small>Active cycle</small><strong>August 2026</strong></div></div></div>
-      <div className="filter-row"><select aria-label="Status"><option>Status: All</option></select><select aria-label="Priority"><option>Priority: All</option></select><select aria-label="Sort submissions"><option>Sort by: Date Submitted</option></select><label className="search-field"><span>⌕</span><input placeholder="Search submissions" /></label></div>
-      <div className="submission-table"><div className="submission-head"><span>Author</span><span>Title</span><span>Date Submitted</span><span>Status</span><span>Priority</span></div>{submissions.map((item, index) => <article className={index === 0 ? "submission-row featured" : "submission-row"} key={item[0]}><span>{item[0]}</span><strong>{item[1]}</strong><span>{item[2]}</span><span><i className={`pill ${tone(item[3])}`}>{item[3]}</i></span><span><i className={`pill ${tone(item[4])}`}>{item[4]}</i></span></article>)}</div>
-      <div className="pagination">Page 1 of 12 <button disabled>‹</button><button>›</button></div>
+      <div className="page-intro"><div><h1>Feedback on file</h1></div><div className="cycle-card"><span>▣</span><div><small>Entries</small><strong>{rows.length} across {employees.length}</strong></div></div></div>
+      <p className="page-lede">Every entry a review can cite. Each carries the id the draft references, so a claim can always be traced back to the sentence it came from.</p>
+      <div className="submission-table"><div className="submission-head"><span>Source id</span><span>What was written</span><span>Author</span><span>About</span><span>Date</span></div>{rows.map((r) => <article className="submission-row" key={`${r.employeeId}-${r.id}`}><span className="font-mono text-[13px]">{r.id}</span><strong>{r.text}</strong><span>{r.reviewer}</span><span><Link href={`/review/${r.employeeId}`}>{r.employee}</Link></span><span><i className={`pill ${tone(r.kind)}`}>{r.date ?? KIND_LABEL[r.kind]}</i></span></article>)}</div>
     </section>
   </main></div>;
 }

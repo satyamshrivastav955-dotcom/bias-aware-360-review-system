@@ -9,6 +9,7 @@ const links = [
   { href: "/", label: "Overview" },
   { href: "/submissions", label: "Submissions" },
   { href: "/reviewers", label: "Reviewers" },
+  { href: "/governance", label: "Governance" },
 ];
 
 const deskLinks = [

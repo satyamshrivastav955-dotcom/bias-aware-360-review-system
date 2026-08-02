@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import ClaimRow from "@/components/claim-row";
 import SourceDrawer from "@/components/source-drawer";
+import { biasPrecheck, raisedCount } from "@/lib/bias-precheck";
 import { buildSourceMap, resolveSource } from "@/lib/sources";
+import { evidenceLedger, flagCounts, totalFlags } from "@/lib/stats";
 import {
   appendAudit,
   clearEmployee,
@@ -25,7 +27,6 @@ import {
   type Employee,
   type Report,
   type SectionKey,
-  type Severity,
   type Source,
 } from "@/lib/types";
 
@@ -41,6 +42,8 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
   const [drawer, setDrawer] = useState<Source | null>(null);
   const [blocked, setBlocked] = useState<ApproveBlocked | null>(null);
   const [acked, setAcked] = useState<string[]>([]);
+  const [flaggedOnly, setFlaggedOnly] = useState(false);
+  const [preview, setPreview] = useState(false);
 
   const id = employee.employee_id;
   const sourceMap = useMemo(() => buildSourceMap(employee), [employee]);
@@ -63,14 +66,12 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
   const locked = !!report && report.status !== "pending_approval";
   const canEdit = !!report && !locked && !busy;
 
-  const counts = useMemo(() => {
-    const c: Record<Severity, number> = { high: 0, medium: 0, low: 0 };
-    if (report) {
-      for (const { key } of SECTIONS)
-        for (const claim of report[key]) if (claim.flag) c[claim.flag.severity]++;
-    }
-    return c;
-  }, [report]);
+  const counts = useMemo(() => flagCounts(report), [report]);
+  const precheck = useMemo(() => biasPrecheck(employee), [employee]);
+  const ledger = useMemo(
+    () => (report ? evidenceLedger(report, sourceMap) : null),
+    [report, sourceMap],
+  );
 
   async function generate() {
     if (locked && !confirm("This review is already finalized. Replace it with a new draft?"))
@@ -163,8 +164,20 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
     );
   }
 
+  // Every amendment that will be sent, paired with the wording it replaces —
+  // the reviewer signs off on the diff, not on a remembered impression of it.
+  function amendments() {
+    if (!report || !original) return [];
+    return SECTIONS.flatMap(({ key, title }) =>
+      report[key]
+        .map((c, i) => ({ ref: pointRef(key, i), title, from: original[key][i]?.text ?? "", to: c.text }))
+        .filter((d) => d.from !== d.to),
+    );
+  }
+
   async function submit(action: "approved" | "rejected") {
     if (!report) return;
+    setPreview(false);
     setBusy(true);
     setError(null);
     setBlocked(null);
@@ -233,6 +246,11 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
   const claimSources = (claim: Claim) =>
     claim.source_ids.map((sid) => resolveSource(sourceMap, sid));
 
+  const visible = (list: Claim[]) =>
+    list
+      .map((claim, i) => ({ claim, i }))
+      .filter(({ claim }) => !flaggedOnly || claim.flag);
+
   return (
     <main className="mx-auto max-w-7xl px-6 py-8 pb-32">
       {/* Top Nav */}
@@ -240,9 +258,25 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
         <Link href="/" className="hover:text-slate-900 transition-colors">
           &larr; Back to Employee Selector
         </Link>
-        <Link href={`/audit/${id}`} className="hover:text-slate-900 transition-colors">
-          View Compliance Audit Trail &rarr;
-        </Link>
+        <div className="flex items-center gap-4">
+          {report && (
+            <button
+              type="button"
+              // Print the whole review, never the filtered view — a saved PDF
+              // that silently omits the unflagged claims is not the report.
+              onClick={() => {
+                setFlaggedOnly(false);
+                setTimeout(() => window.print(), 0);
+              }}
+              className="font-semibold hover:text-slate-900 transition-colors"
+            >
+              Print / Save as PDF
+            </button>
+          )}
+          <Link href={`/audit/${id}`} className="hover:text-slate-900 transition-colors">
+            View Compliance Audit Trail &rarr;
+          </Link>
+        </div>
       </nav>
 
       {/* Header Banner */}
@@ -280,6 +314,64 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
           )}
         </div>
       </header>
+
+      {/* Input evidence check — arithmetic on the source file, no model
+          involved, so it stands whether or not the draft has been generated. */}
+      <section className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 pb-3">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900">
+            Evidence balance check
+          </h2>
+          <p className="font-mono text-[10px] uppercase tracking-wider text-slate-400">
+            Computed from the source file · no AI
+          </p>
+        </div>
+
+        <p className="mt-3 text-xs leading-relaxed text-slate-500">
+          {raisedCount(precheck) === 0
+            ? "The feedback on file is spread across several people and months. Nothing here suggests the evidence itself is skewed."
+            : `${raisedCount(precheck)} of ${precheck.length} balance checks are outside the expected range. These describe the input, not the draft — the audit below judges the wording.`}
+        </p>
+
+        <ul className="mt-4 space-y-3">
+          {precheck.map((s) => (
+            <li
+              key={s.id}
+              className={`rounded-lg border p-3 ${
+                s.raised
+                  ? "border-amber-200 bg-amber-50"
+                  : "border-slate-200 bg-slate-50"
+              }`}
+            >
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="text-xs font-semibold text-slate-900">{s.label}</p>
+                <span
+                  className={`shrink-0 font-mono text-[10px] font-semibold uppercase tracking-wider ${
+                    s.raised ? "text-amber-800" : "text-slate-400"
+                  }`}
+                >
+                  {s.raised ? "Outside range" : "Within range"}
+                </span>
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-slate-600">{s.detail}</p>
+              {s.refs.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {s.refs.map((sid) => (
+                    <button
+                      key={sid}
+                      type="button"
+                      onClick={() => setDrawer(resolveSource(sourceMap, sid))}
+                      className="rounded border border-slate-300 bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-600 hover:border-slate-500 hover:text-slate-900"
+                    >
+                      {sid}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
 
       {/* Generation Stages */}
       {stage !== null && (
@@ -363,6 +455,25 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
         <div className="mt-8 grid gap-8 lg:grid-cols-3">
           {/* Main Review Sections (Left 2 Columns) */}
           <div className="space-y-8 lg:col-span-2">
+            {totalFlags(counts) > 0 && (
+              <div className="no-print flex items-center justify-between rounded-xl border border-slate-200 bg-white px-5 py-3 shadow-xs">
+                <p className="text-xs text-slate-500">
+                  {totalFlags(counts)} of {ledger?.claimsTotal ?? 0} claims carry a flag.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setFlaggedOnly((v) => !v)}
+                  aria-pressed={flaggedOnly}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    flaggedOnly
+                      ? "border-amber-300 bg-amber-50 text-amber-900"
+                      : "border-slate-200 text-slate-600 hover:border-slate-400"
+                  }`}
+                >
+                  {flaggedOnly ? "Showing flagged only" : "Show flagged only"}
+                </button>
+              </div>
+            )}
             {SECTIONS.map(({ key, title, note }) => (
               <section key={key} className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
                 <div className="border-b border-slate-100 pb-4 mb-4 flex items-center justify-between">
@@ -372,9 +483,13 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
 
                 {report[key].length === 0 ? (
                   <p className="text-xs text-slate-400 italic">No points drafted for this section.</p>
+                ) : visible(report[key]).length === 0 ? (
+                  <p className="text-xs text-slate-400 italic">No flagged claims in this section.</p>
                 ) : (
                   <div className="space-y-4">
-                    {report[key].map((claim, i) => (
+                    {/* Index into the unfiltered section — point_ref and edits
+                        address the real position, not the visible one. */}
+                    {visible(report[key]).map(({ claim, i }) => (
                       <ClaimRow
                         key={i}
                         claim={claim}
@@ -426,6 +541,16 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
                 {report.overall_bias_summary}
               </p>
 
+              {ledger && (
+                <p className="mt-3 font-mono text-[10px] leading-relaxed text-slate-500">
+                  {ledger.sourcesCited} of {ledger.sourcesOnFile} sources on file
+                  cited · {ledger.claimsWithoutCitation} of {ledger.claimsTotal}{" "}
+                  claims without a citation
+                  {ledger.unresolvedCitations.length > 0 &&
+                    ` · ${ledger.unresolvedCitations.length} citation${ledger.unresolvedCitations.length === 1 ? "" : "s"} match no source`}
+                </p>
+              )}
+
               {!locked && (
                 <div className="mt-4 rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs text-blue-900">
                   <p className="font-semibold">Human-in-the-Loop Requirement:</p>
@@ -470,11 +595,68 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
               </button>
               <button
                 type="button"
-                onClick={() => submit("approved")}
+                onClick={() => setPreview(true)}
                 disabled={busy || locked}
                 className="rounded-lg bg-blue-600 px-5 py-2 text-xs font-semibold text-white shadow-xs transition-colors enabled:hover:bg-blue-700 disabled:opacity-40"
               >
-                {dirty ? "Approve With Edits" : "Approve Review"}
+                {dirty ? "Review Edits & Approve" : "Approve Review"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {preview && report && (
+        <div className="no-print fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center">
+          <div role="dialog" aria-modal="true" aria-label="Confirm approval" className="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-lg">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900">
+              What will be recorded
+            </h2>
+            <p className="mt-2 text-xs leading-relaxed text-slate-500">
+              Approving sends this to the review service under your name, {REVIEWER}. Nothing else about the draft changes.
+            </p>
+
+            <h3 className="mt-5 font-mono text-[10px] uppercase tracking-wider text-slate-400">
+              Amendments · {amendments().length}
+            </h3>
+            {amendments().length === 0 ? (
+              <p className="mt-1 text-xs italic text-slate-400">None. The draft is approved exactly as the model wrote it.</p>
+            ) : (
+              <ul className="mt-2 space-y-3">
+                {amendments().map((d) => (
+                  <li key={d.ref} className="rounded-lg border border-slate-200 p-3">
+                    <p className="font-mono text-[10px] uppercase tracking-wider text-slate-400">{d.ref} · {d.title}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-400 line-through">{d.from}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-800">{d.to}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <h3 className="mt-5 font-mono text-[10px] uppercase tracking-wider text-slate-400">
+              Flags acknowledged without amendment · {acked.length}
+            </h3>
+            {acked.length === 0 ? (
+              <p className="mt-1 text-xs italic text-slate-400">None.</p>
+            ) : (
+              <p className="mt-1 font-mono text-xs text-slate-700">{acked.join(", ")}</p>
+            )}
+
+            <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4">
+              <button
+                type="button"
+                onClick={() => setPreview(false)}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:border-slate-400"
+              >
+                Keep editing
+              </button>
+              <button
+                type="button"
+                onClick={() => submit("approved")}
+                disabled={busy}
+                className="rounded-lg bg-blue-600 px-5 py-2 text-xs font-semibold text-white transition-colors enabled:hover:bg-blue-700 disabled:opacity-40"
+              >
+                Send approval
               </button>
             </div>
           </div>
