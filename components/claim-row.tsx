@@ -14,6 +14,19 @@ const SEVERITY_BADGE: Record<Severity, string> = {
 
 const SEVERITIES: Severity[] = ["high", "medium", "low"];
 
+type SecondOpinion =
+  | { state: "idle" }
+  | { state: "asking" }
+  | { state: "unavailable"; reason: string }
+  | { state: "answered"; biased: boolean; severity: Severity; reasoning: string };
+
+const UNAVAILABLE: Record<string, string> = {
+  not_configured: "No second-opinion agent is configured for this deployment.",
+  upstream_error: "The second-opinion agent returned an error.",
+  unparseable: "The second-opinion agent replied with something this page could not read, so nothing is shown rather than a half-read verdict.",
+  unreachable: "The second-opinion agent could not be reached.",
+};
+
 export default function ClaimRow({
   claim,
   sources,
@@ -40,6 +53,9 @@ export default function ClaimRow({
   // Auto-open edit mode for freshly-added empty claims.
   const [editing, setEditing] = useState(claim.text === "");
   const [editingFlag, setEditingFlag] = useState(false);
+  // Asked for, never automatic. A model call on every keystroke would be both
+  // wasteful and worse advice — it would judge half-typed sentences.
+  const [opinion, setOpinion] = useState<SecondOpinion>({ state: "idle" });
   const ref = useRef<HTMLTextAreaElement>(null);
   const flagRef = useRef<HTMLTextAreaElement>(null);
   const flag = claim.flag;
@@ -73,6 +89,34 @@ export default function ClaimRow({
   useEffect(() => {
     if (!canEdit) { setEditing(false); setEditingFlag(false); }
   }, [canEdit]);
+
+  // A verdict belongs to the wording it judged. Editing further discards it
+  // rather than leaving an opinion on text that no longer exists.
+  useEffect(() => {
+    setOpinion({ state: "idle" });
+  }, [claim.text]);
+
+  async function askSecondOpinion() {
+    setOpinion({ state: "asking" });
+    try {
+      const res = await fetch("/api/reaudit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          text: claim.text,
+          ...(flag ? { original_flag_type: flag.type } : {}),
+        }),
+      });
+      const data = await res.json();
+      setOpinion(
+        data.available
+          ? { state: "answered", ...data.verdict }
+          : { state: "unavailable", reason: data.reason ?? "upstream_error" },
+      );
+    } catch {
+      setOpinion({ state: "unavailable", reason: "unreachable" });
+    }
+  }
 
   function handleFlagField(field: Partial<Flag>) {
     if (!flag || !onFlagChange) return;
@@ -281,7 +325,7 @@ export default function ClaimRow({
               Re-check of amendment{worst ? ` (${worst} severity)` : " — clear"}
             </span>
             <span className="font-mono text-[10px] uppercase tracking-wider opacity-70">
-              Deterministic · no AI
+              Rules below · deterministic
             </span>
           </div>
           {hits.length > 0 ? (
@@ -298,6 +342,45 @@ export default function ClaimRow({
               the flag above — only a reviewer can do that.
             </p>
           )}
+
+          {/* Second opinion — a different provider, asked only when a reviewer
+              wants one. The rules above are word lists; this reaches wording
+              they cannot: sarcasm, faint praise, dismissiveness. */}
+          <div className="no-print mt-3 border-t border-current/20 pt-2">
+            {opinion.state === "idle" && (
+              <button
+                type="button"
+                onClick={askSecondOpinion}
+                className="font-mono text-[10px] uppercase tracking-wider opacity-70 hover:opacity-100 transition-opacity underline"
+              >
+                Ask a second opinion
+              </button>
+            )}
+            {opinion.state === "asking" && (
+              <span className="font-mono text-[10px] uppercase tracking-wider opacity-70">
+                Asking&hellip;
+              </span>
+            )}
+            {opinion.state === "unavailable" && (
+              <p className="text-xs leading-relaxed opacity-80">
+                {UNAVAILABLE[opinion.reason] ?? UNAVAILABLE.upstream_error} The
+                deterministic checks above stand on their own.
+              </p>
+            )}
+            {opinion.state === "answered" && (
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-wider opacity-70">
+                  Second opinion · separate provider ·{" "}
+                  {opinion.biased ? `reads as biased (${opinion.severity})` : "reads as clear"}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed">{opinion.reasoning}</p>
+                <p className="mt-1 text-xs leading-relaxed opacity-70">
+                  A model&rsquo;s judgment, like the audit above. It clears nothing
+                  and blocks nothing.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

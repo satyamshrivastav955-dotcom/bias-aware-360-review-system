@@ -9,7 +9,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "npm run test:unit && npm run test:contracts && npm run test:evaluation",
-    "test:unit": "tsx lib/stats.test.ts && tsx lib/sources.test.ts && tsx lib/n8n.test.ts && tsx lib/schemas.test.ts && tsx lib/reaudit.test.ts && tsx lib/consent.test.ts",
+    "test:unit": "tsx lib/stats.test.ts && tsx lib/sources.test.ts && tsx lib/n8n.test.ts && tsx lib/schemas.test.ts && tsx lib/reaudit.test.ts && tsx lib/consent.test.ts && tsx lib/retention.test.ts && tsx lib/reaudit-request.test.ts",
     "test:contracts": "tsx lib/contracts.test.ts",
     "test:evaluation": "tsx lib/evaluation.test.ts",
     "evaluation:report": "tsx -e \"import { evaluateCapturedReports } from './lib/evaluation'; console.log(JSON.stringify(evaluateCapturedReports(), null, 2))\"",

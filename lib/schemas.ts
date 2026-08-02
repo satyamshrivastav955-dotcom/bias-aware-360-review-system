@@ -137,6 +137,23 @@ export const acknowledgeRequestSchema = z.object({
   flag_type: z.string().trim().min(1),
 });
 
+// Erasure of one employee's generated reviews. A reason is required: an
+// erasure with no stated ground is indistinguishable from someone deleting
+// evidence, and the trail keeps the reason after the reports are gone.
+export const eraseRequestSchema = z.object({
+  employee_id: z.string().trim().min(1),
+  reviewer: z.string().trim().min(1),
+  reason: z.enum(["subject_request", "retention_expired"]),
+});
+
+// A second opinion on one amended claim. Only the wording travels — no name,
+// no employee id, no source text. The question is whether this sentence is
+// biased, and answering it does not require knowing whose review it is.
+export const reauditRequestSchema = z.object({
+  text: z.string().trim().min(1).max(2000),
+  original_flag_type: flagTypeSchema.optional(),
+});
+
 export const approveResponseSchema = z.object({
   report_id: z.string().trim().min(1),
   status: reportStatusSchema,

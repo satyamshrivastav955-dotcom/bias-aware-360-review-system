@@ -9,6 +9,7 @@ import { useReviewer } from "@/components/reviewer-identity";
 import SourceDrawer from "@/components/source-drawer";
 import { biasPrecheck, raisedCount } from "@/lib/bias-precheck";
 import { reauditClaim } from "@/lib/reaudit";
+import { RETENTION_MONTHS, retentionStatus } from "@/lib/retention";
 import { buildSourceMap, resolveSource } from "@/lib/sources";
 import { evidenceLedger, flagCounts, totalFlags } from "@/lib/stats";
 import {
@@ -73,6 +74,9 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
   const [savedToast, setSavedToast] = useState(false);
   const [extraFeedback, setExtraFeedback] = useState<Feedback[]>([]);
   const [selfAssessment, setSelfAssessment] = useState<string | null>(null);
+  // Erasure outcome, kept so the page can say what actually happened rather
+  // than clearing the screen and leaving the reviewer to assume.
+  const [erasure, setErasure] = useState<string | null>(null);
 
   function flashSaved() {
     setSavedToast(true);
@@ -114,6 +118,13 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
   const ledger = useMemo(
     () => (report ? evidenceLedger(report, sourceMap) : null),
     [report, sourceMap],
+  );
+  // Computed on the client only, after hydration: the server renders at build
+  // time, so "expires in N days" measured there would be wrong by the time
+  // anyone read it.
+  const retention = useMemo(
+    () => (hydrated && report ? retentionStatus(report.created_at) : null),
+    [hydrated, report],
   );
 
   async function generate() {
@@ -392,6 +403,47 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
+      setBusy(false);
+    }
+  }
+
+  // Erasure of everything generated about this person. The local copy is
+  // cleared whatever the server says: refusing to clear the browser because a
+  // webhook is down would leave the reviewer looking at a report they were just
+  // told no longer exists. What the server did — or failed to do — is reported
+  // separately rather than folded into one optimistic "done".
+  async function erase(reason: "subject_request" | "retention_expired") {
+    if (
+      !confirm(
+        `Erase every generated review for ${employee.name}? The drafts and reports are deleted and the audit entries are emptied of their contents. The trail keeps a record that this happened, who asked, and why. This cannot be undone.`,
+      )
+    )
+      return;
+
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/employee-data", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ employee_id: id, reviewer, reason }),
+      });
+      const data = await res.json();
+      setErasure(
+        res.ok
+          ? `Erased. ${data.reports_erased ?? 0} report${data.reports_erased === 1 ? "" : "s"} deleted on the server and ${data.audit_rows_redacted ?? 0} audit entr${data.audit_rows_redacted === 1 ? "y" : "ies"} emptied of their contents.`
+          : `Cleared from this browser, but the server copy was not erased (${data.error ?? res.status}). The request has to be repeated once the review service is reachable.`,
+      );
+    } catch {
+      setErasure(
+        "Cleared from this browser, but the review service could not be reached. The server copy still exists and the request has to be repeated.",
+      );
+    } finally {
+      clearEmployee(id);
+      setReport(null);
+      setOriginal(null);
+      setAcked([]);
+      setAckUnrecorded([]);
       setBusy(false);
     }
   }
@@ -896,6 +948,60 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
         </div>
       )}
 
+
+      {/* Retention and erasure. Sits at the foot of the page, not in a settings
+          screen: the window a report is kept for belongs next to the report. */}
+      {(report || erasure) && (
+        <section className="no-print mt-8 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#20272e] p-6 shadow-xs">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
+              Retention and erasure
+            </h2>
+            <p className="font-mono text-[10px] uppercase tracking-wider text-slate-400">
+              {RETENTION_MONTHS}-month window
+            </p>
+          </div>
+
+          {erasure ? (
+            <p className="mt-3 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+              {erasure}
+            </p>
+          ) : (
+            <>
+              <p className="mt-3 text-xs leading-relaxed text-slate-500">
+                {retention
+                  ? retention.expired
+                    ? `This review passed its retention window on ${retention.expiresOn} and is due for erasure.`
+                    : `Kept until ${retention.expiresOn} — ${retention.daysRemaining} day${retention.daysRemaining === 1 ? "" : "s"} remaining. Two review cycles: long enough to read this year against last, short enough that a judgment does not follow someone indefinitely.`
+                  : "This draft carries no usable creation date, so no retention window can be computed for it."}
+              </p>
+              <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                Erasing deletes the drafts, the reports, and the source record the model was given. The audit entries stay as rows and lose their contents — the trail keeps who acted and when, plus a new entry recording the erasure itself.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => erase("subject_request")}
+                  disabled={busy}
+                  className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-semibold text-rose-700 shadow-xs transition-colors enabled:hover:bg-rose-100 disabled:opacity-40"
+                >
+                  Erase at subject&rsquo;s request
+                </button>
+                {retention?.expired && (
+                  <button
+                    type="button"
+                    onClick={() => erase("retention_expired")}
+                    disabled={busy}
+                    className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-xs transition-colors enabled:hover:bg-slate-50 dark:enabled:hover:bg-slate-700 disabled:opacity-40"
+                  >
+                    Erase — retention expired
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </section>
+      )}
 
       {preview && report && (
         <div className="no-print fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center">

@@ -162,3 +162,37 @@ export const reauditSeverity = (s: ReauditSignal[]): Severity | null => {
   }
   return worst;
 };
+
+// ─── Second opinion from the third agent ─────────────────────────────────────
+// The agent is asked for JSON but is still a language model, so its reply is
+// untrusted input. Anything that is not a complete, well-formed verdict is
+// discarded: a malformed second opinion rendered as if it were a real one is
+// worse than no second opinion at all.
+
+export type SecondOpinionVerdict = {
+  biased: boolean;
+  severity: Severity;
+  reasoning: string;
+};
+
+export function parseVerdict(raw: string): SecondOpinionVerdict | null {
+  // Models wrap JSON in prose or fences more often than not, so the object is
+  // extracted rather than the whole reply being handed to JSON.parse.
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  try {
+    const parsed = JSON.parse(match[0]) as Record<string, unknown>;
+    const { biased, severity, reasoning } = parsed;
+    if (
+      typeof biased !== "boolean" ||
+      typeof reasoning !== "string" ||
+      !reasoning.trim() ||
+      (severity !== "low" && severity !== "medium" && severity !== "high")
+    ) {
+      return null;
+    }
+    return { biased, severity, reasoning: reasoning.trim().slice(0, 600) };
+  } catch {
+    return null;
+  }
+}

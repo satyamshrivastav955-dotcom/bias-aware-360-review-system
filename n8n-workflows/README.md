@@ -8,10 +8,12 @@
 | Workflow A | `A - generate-review` (id `LGGoOdiDTVdKrMon`) — **active** |
 | Workflow B | `B - approve-review` (id `mzrCmPUrDAmEidjO`) — **active** |
 | Workflow C | `C - acknowledge` — **import `acknowledge.json`, then activate** |
+| Workflow D | `D - erase-employee-data` — **import `erase-employee-data.json`, then activate** |
 | Webhook A | `POST /webhook/generate-review` — body `{"employee_id": "emp_001"}` |
 | Webhook B | `POST /webhook/approve-review` — body below |
 | Webhook B2 | `GET /webhook/audit-trail[?report_id=<uuid>]` |
 | Webhook C | `POST /webhook/acknowledge` — body below |
+| Webhook D | `POST /webhook/erase-employee-data` — body below |
 | Latency | A: ~25–40 s (two sequential LLM calls) · B: <2 s |
 
 ## Architecture (9 nodes)
@@ -91,6 +93,46 @@ The caller (`app/api/acknowledge/route.ts`) never fails the reviewer's flow on
 this: the acknowledgement is already true in the browser, so an unreachable
 webhook returns `{recorded: false}` and the UI says the server copy is missing
 instead of pretending the record exists.
+
+## Workflow D — erase-employee-data (6 nodes)
+
+`POST /webhook/erase-employee-data`:
+
+```json
+{
+  "employee_id": "emp_002",
+  "reviewer": "Manager Name",
+  "reason": "subject_request"     // or "retention_expired"
+}
+```
+
+One SQL statement, so a crash cannot leave reports deleted with no record of
+it. In order: the reports for this employee are found, their `audit_log` rows
+are redacted (`diff` replaced with `{"redacted": true, ...}`, `report_id`
+nulled), a new `action = 'erased'` row is written naming the actor and the
+reason, then the reports and the `employees` source row are deleted.
+
+**The audit rows are updated, never deleted.** Actor, action and timestamp
+survive; only the contents go. An erasure that also erased the evidence of
+itself would not be a governance control — `lib/contracts.test.ts` asserts
+`delete from audit_log` never appears in this query.
+
+`report_id` is nulled in the same update because `audit_log.report_id`
+references `reports(id)` — leaving it set makes the report delete fail on the
+foreign key.
+
+`reason` is validated server-side and must be `subject_request` or
+`retention_expired`. An erasure with no stated ground is indistinguishable from
+someone quietly deleting an inconvenient review.
+
+Unlike Workflow C, the caller (`app/api/employee-data/route.ts`) fails loudly:
+a reviewer told the data is gone must not have to wonder. It also re-checks that
+every returned row belongs to the employee that was asked about, so a workflow
+edit that widened the delete cannot be reported back as a success.
+
+Retention window: `RETENTION_MONTHS` in `lib/retention.ts` (24 months). Nothing
+sweeps expired records automatically — the review page marks them due and a
+human acts.
 
 ## Credentials (already created on the instance)
 

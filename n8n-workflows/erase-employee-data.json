@@ -1,0 +1,186 @@
+{
+  "name": "D - erase-employee-data",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "erase-employee-data",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "wh-erase",
+      "name": "Webhook erase",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -900,
+        0
+      ],
+      "webhookId": "erase-employee-data"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Erasure needs a named actor and a stated ground. An erasure request with\n// neither is indistinguishable from someone quietly deleting an inconvenient\n// review, and the trail row this leaves behind is only worth keeping if it\n// says who asked and why.\nconst body = $('Webhook erase').first().json.body || {};\n\nconst employeeId = (body.employee_id || '').trim();\nconst reviewer = (body.reviewer || '').trim();\nconst reason = (body.reason || '').trim();\n\nif (!employeeId || !reviewer) {\n  return [{ json: { __http_status: 400, ok: false, error: 'invalid_erase_request', detail: 'employee_id and reviewer are both required' } }];\n}\nif (reason !== 'subject_request' && reason !== 'retention_expired') {\n  return [{ json: { __http_status: 400, ok: false, error: 'invalid_reason', detail: 'reason must be subject_request or retention_expired' } }];\n}\n\nreturn [{ json: {\n  __http_status: 200,\n  ok: true,\n  employee_id: employeeId,\n  reviewer,\n  reason,\n  diff: JSON.stringify({ erased_employee_id: employeeId, reason })\n} }];"
+      },
+      "id": "code-validate-erase",
+      "name": "Validate erase request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -700,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "is-ok",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-valid-erase",
+      "name": "Valid erase?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -500,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- One statement so a crash cannot leave reports deleted with no record of it.\n-- Order matters: the trail row is written from the report ids before they are\n-- gone, the audit diffs are redacted (rows kept, contents emptied), and only\n-- then are the reports and the source row deleted.\nwith targets as (\n  select id from reports where employee_id = $1\n), redacted as (\n  -- report_id is nulled as well as the diff: audit_log references reports(id),\n  -- so leaving it set would make the delete below fail on the foreign key. The\n  -- row survives with its actor, action and timestamp — what was decided and by\n  -- whom stays; the content of the decision does not.\n  update audit_log set diff = jsonb_build_object('redacted', true, 'reason', $3), report_id = null\n   where report_id in (select id from targets)\n  returning 1\n), noted as (\n  insert into audit_log (report_id, actor, action, diff)\n  select null, $2, 'erased', $4::jsonb\n  returning 1\n), dropped_reports as (\n  delete from reports where employee_id = $1 returning 1\n), dropped_employee as (\n  delete from employees where employee_id = $1 returning 1\n)\nselect $1 as employee_id,\n       (select count(*) from dropped_reports) as reports_erased,\n       (select count(*) from redacted) as audit_rows_redacted,\n       (select count(*) from dropped_employee) as source_rows_erased",
+        "options": {
+          "queryReplacement": "={{ $json.employee_id }},{{ $json.reviewer }},{{ $json.reason }},{{ $json.diff }}"
+        }
+      },
+      "id": "pg-erase",
+      "name": "Erase employee data",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -300,
+        -100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "YVgSP5ue1kUxzfQH",
+          "name": "Supabase Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, employee_id: $('Validate erase request').first().json.employee_id, reports_erased: Number($json.reports_erased || 0), audit_rows_redacted: Number($json.audit_rows_redacted || 0), source_rows_erased: Number($json.source_rows_erased || 0), erased: [{ employee_id: $('Validate erase request').first().json.employee_id }] }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-erased",
+      "name": "Respond erased",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -100,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": "={{ $json.__http_status || 400 }}"
+        }
+      },
+      "id": "respond-erase-err",
+      "name": "Respond erase rejected",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -300,
+        120
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook erase": {
+      "main": [
+        [
+          {
+            "node": "Validate erase request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate erase request": {
+      "main": [
+        [
+          {
+            "node": "Valid erase?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid erase?": {
+      "main": [
+        [
+          {
+            "node": "Erase employee data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond erase rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Erase employee data": {
+      "main": [
+        [
+          {
+            "node": "Respond erased",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
