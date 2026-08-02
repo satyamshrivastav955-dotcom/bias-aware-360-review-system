@@ -25,12 +25,21 @@ import {
   type Claim,
   type EditedFields,
   type Employee,
+  type InsufficientEvidence,
   type Report,
   type SectionKey,
   type Source,
 } from "@/lib/types";
 
 const STAGES = ["Reading feedback files", "Executing bias audit", "Finalizing review draft"];
+
+// Backend keys for the evidence categories the gate can report as absent.
+const MISSING_LABEL: Record<string, string> = {
+  manager_feedback: "Manager feedback",
+  peer_feedback: "Peer feedback",
+  goals: "Goals",
+  project_outcomes: "Project outcomes",
+};
 
 export default function ReviewClient({ employee }: { employee: Employee }) {
   const [hydrated, setHydrated] = useState(false);
@@ -42,6 +51,11 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
   const [drawer, setDrawer] = useState<Source | null>(null);
   const [blocked, setBlocked] = useState<ApproveBlocked | null>(null);
   const [acked, setAcked] = useState<string[]>([]);
+  // Set when the backend's evidence gate declines to draft: too little
+  // feedback on file. Renders what is missing instead of a report.
+  const [insufficient, setInsufficient] = useState<InsufficientEvidence | null>(
+    null,
+  );
   const [flaggedOnly, setFlaggedOnly] = useState(false);
   const [preview, setPreview] = useState(false);
 
@@ -79,6 +93,7 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
 
     setBusy(true);
     setError(null);
+    setInsufficient(null);
     setStage(0);
     const advance = setTimeout(() => setStage(1), 1500);
     const started = Date.now();
@@ -96,6 +111,16 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
       await new Promise((r) => setTimeout(r, Math.max(0, 1800 - (Date.now() - started))));
       setStage(2);
       await new Promise((r) => setTimeout(r, 600));
+
+      // The evidence gate refused to draft — not an error, a finding.
+      if ((data as { insufficient?: boolean }).insufficient) {
+        // A refusal supersedes any stale browser-cached draft for this employee.
+        clearEmployee(id);
+        setReport(null);
+        setOriginal(null);
+        setInsufficient(data as InsufficientEvidence);
+        return;
+      }
 
       const next = data as Report;
       setReport(next);
@@ -396,6 +421,51 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
             Dismiss
           </button>
         </div>
+      )}
+
+      {insufficient && !report && (
+        <section className="no-print mt-6 rounded-xl border border-amber-200 bg-amber-50 p-6 shadow-xs">
+          <p className="text-sm font-bold uppercase tracking-wider text-amber-900">
+            Not enough evidence to draft a review
+          </p>
+          <p className="mt-2 max-w-3xl text-[15px] leading-relaxed text-amber-900">
+            {insufficient.message}
+          </p>
+
+          {insufficient.missing.length > 0 && (
+            <div className="mt-4">
+              <p className="font-mono text-[10px] uppercase tracking-wider text-amber-800">
+                Missing from the file
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {insufficient.missing.map((m) => (
+                  <span
+                    key={m}
+                    className="rounded-full border border-amber-300 bg-white px-3 py-1 font-mono text-[11px] font-semibold text-amber-900"
+                  >
+                    {MISSING_LABEL[m] ?? m.replace(/_/g, " ")}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <p className="mt-4 max-w-3xl text-xs leading-relaxed text-amber-800">
+            A fair review needs at least two independent reviewer voices and
+            one objective record — a goal or a project outcome. The system
+            declines to draft rather than invent one. Collect the missing
+            feedback, then generate again.
+          </p>
+
+          <button
+            type="button"
+            onClick={generate}
+            disabled={busy}
+            className="mt-5 rounded-lg border border-amber-300 bg-white px-4 py-2 text-xs font-semibold text-amber-900 transition-colors hover:bg-amber-100 disabled:opacity-40"
+          >
+            Check again
+          </button>
+        </section>
       )}
 
       {blocked && (

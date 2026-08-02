@@ -1,0 +1,18 @@
+{
+  "employee_id": "emp_004",
+  "name": "Riya Kapoor",
+  "role": "Associate Software Engineer",
+  "self_assessment": "I joined the team five weeks ago and have mostly been onboarding. I finished the new-hire training and picked up my first two small tickets. I am still learning the codebase and our release process.",
+  "manager_feedback": [
+    {
+      "id": "manager_K_1",
+      "reviewer": "Manager K",
+      "text": "Riya has settled in well so far and asks good questions in standup. It is too early in her tenure to say much more than that.",
+      "date": "2026-07"
+    }
+  ],
+  "peer_feedback": [],
+  "goals": [],
+  "project_outcomes": [],
+  "meeting_notes": []
+}

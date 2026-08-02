@@ -1,4 +1,4 @@
-import type { Report } from "@/lib/types";
+import type { InsufficientEvidence, Report } from "@/lib/types";
 import emp001 from "./mock_reports/emp_001.json";
 import emp002 from "./mock_reports/emp_002.json";
 import emp003 from "./mock_reports/emp_003.json";
@@ -21,5 +21,18 @@ export function mockReport(employeeId: string): Report | null {
     ...structuredClone(d),
     report_id: crypto.randomUUID(),
     created_at: new Date().toISOString(),
+  };
+}
+
+export function mockInsufficientEvidence(employeeId: string): InsufficientEvidence | null {
+  if (employeeId !== "emp_004") return null;
+  return {
+    insufficient: true,
+    employee_id: employeeId,
+    name: "Riya Kapoor",
+    role: "Associate Software Engineer",
+    message: "Not enough independent feedback on file to draft a fair, evidence-grounded review. No report was generated and no AI output was invented.",
+    missing: ["peer_feedback", "goals", "project_outcomes"],
+    evidence: { self_assessment: 1, manager_feedback: 1, peer_feedback: 0, goals: 0, project_outcomes: 0, meeting_notes: 0 },
   };
 }
