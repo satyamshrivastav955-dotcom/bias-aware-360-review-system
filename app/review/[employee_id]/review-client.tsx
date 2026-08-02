@@ -287,7 +287,7 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
           this page's own heading sizes on specificity. */}
       <main className="mx-auto w-[min(1060px,100%)] px-10 py-14 pb-32">
       {/* Top Nav */}
-      <nav className="no-print mb-6 flex items-center justify-end gap-4 border-b border-slate-200 pb-4 text-xs font-semibold text-slate-500">
+      <nav className="no-print mb-6 flex items-center justify-end gap-4 border-b border-slate-200 dark:border-slate-800 pb-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
           {report && (
             <button
               type="button"
@@ -297,38 +297,38 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
                 setFlaggedOnly(false);
                 setTimeout(() => window.print(), 0);
               }}
-              className="font-semibold hover:text-slate-900 transition-colors"
+              className="font-semibold hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
             >
               Print / Save as PDF
             </button>
           )}
-          <Link href={`/audit/${id}`} className="hover:text-slate-900 transition-colors">
+          <Link href={`/audit/${id}`} className="hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
             View Compliance Audit Trail &rarr;
           </Link>
       </nav>
 
       {/* Header Banner */}
-      <header className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
+      <header className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#20272e] p-6 shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold text-slate-600">
+              <span className="rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 font-mono text-xs font-semibold text-slate-600 dark:text-slate-300">
                 {id}
               </span>
               {report && (
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium uppercase tracking-wider ${
                   report.status === "approved"
-                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
                     : report.status === "rejected"
-                      ? "bg-rose-50 text-rose-700 border border-rose-200"
-                      : "bg-amber-50 text-amber-700 border border-amber-200"
+                      ? "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-800"
+                      : "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
                 }`}>
                   {report.status.replace("_", " ")}
                 </span>
               )}
             </div>
-            <h1 className="mt-2 text-2xl font-bold text-slate-900">{employee.name}</h1>
-            <p className="text-sm font-medium text-slate-500">{employee.role}</p>
+            <h1 className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">{employee.name}</h1>
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{employee.role}</p>
           </div>
 
           {hydrated && !report && !busy && (
@@ -345,9 +345,9 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
 
       {/* Input evidence check — arithmetic on the source file, no model
           involved, so it stands whether or not the draft has been generated. */}
-      <section className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
-        <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 pb-3">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900">
+      <section className="mt-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#20272e] p-6 shadow-xs">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
             Evidence balance check
           </h2>
           <p className="font-mono text-[10px] uppercase tracking-wider text-slate-400">
