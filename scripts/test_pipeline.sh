@@ -30,10 +30,40 @@ EOF
 REPORT_ID=$(python -c "import json;print(json.load(open('/tmp/emp_002_report.json')).get('report_id',''))")
 
 echo
-echo "== Test 3: approve report $REPORT_ID =="
+echo "== Test 3: unacknowledged approval must be blocked =="
 curl -sS -X POST "$N8N_URL/webhook/approve-review" \
   -H "Content-Type: application/json" \
-  -d "{\"report_id\": \"$REPORT_ID\", \"action\": \"approve\", \"reviewer\": \"Manager A\"}" | python -m json.tool
+  -d "{\"report_id\": \"$REPORT_ID\", \"action\": \"approved\", \"reviewer\": \"Manager A\"}" \
+  | tee /tmp/emp_002_blocked.json | python -m json.tool
+
+python - <<'EOF'
+import json
+r = json.load(open("/tmp/emp_002_blocked.json"))
+assert r.get("error") == "unresolved_high_severity_flags", "ACCEPTANCE FAIL: approval was not blocked"
+assert r.get("unresolved_count", 0) > 0, "ACCEPTANCE FAIL: no unresolved flags returned"
+print("ACCEPTANCE PASS: high-severity approval blocked")
+EOF
+
+ACKS=$(python - <<'EOF'
+import json
+r = json.load(open("/tmp/emp_002_blocked.json"))
+print(json.dumps([p["point_ref"] for p in r["unresolved"]]))
+EOF
+)
+
+echo
+echo "== Test 4: explicitly acknowledged approval succeeds =="
+curl -sS -X POST "$N8N_URL/webhook/approve-review" \
+  -H "Content-Type: application/json" \
+  -d "{\"report_id\": \"$REPORT_ID\", \"action\": \"approved\", \"reviewer\": \"Manager A\", \"acknowledged_refs\": $ACKS}" \
+  | tee /tmp/emp_002_approved.json | python -m json.tool
+
+python - <<'EOF'
+import json
+r = json.load(open("/tmp/emp_002_approved.json"))
+assert r.get("status") == "approved", "ACCEPTANCE FAIL: acknowledged approval did not finalize"
+print("ACCEPTANCE PASS: acknowledged approval finalized")
+EOF
 
 echo
 echo "All tests done."

@@ -1,5 +1,6 @@
 import { parseBody, unwrapN8n, webhookBase } from "@/lib/n8n";
-import type { ApproveResponse, EditedFields, ReportStatus } from "@/lib/types";
+import { approveRequestSchema, approveResponseSchema } from "@/lib/schemas";
+import type { ApproveResponse, EditedFields } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -13,18 +14,22 @@ type Body = {
 };
 
 export async function POST(req: Request) {
-  const body = (await req.json()) as Body;
-  const { report_id, action, reviewer } = body;
+  let input: unknown;
+  try {
+    input = await req.json();
+  } catch {
+    return Response.json({ error: "Request body must be valid JSON." }, { status: 400 });
+  }
 
-  if (!report_id || !action || !reviewer) {
+  const parsed = approveRequestSchema.safeParse(input);
+  if (!parsed.success) {
     return Response.json(
-      { error: "report_id, action, and reviewer are required" },
+      { error: "Invalid approval request.", issues: parsed.error.issues },
       { status: 400 },
     );
   }
-  if (action !== "approved" && action !== "rejected") {
-    return Response.json({ error: "invalid_action" }, { status: 400 });
-  }
+  const body: Body = parsed.data;
+  const { report_id, action, reviewer } = parsed.data;
 
   const base = webhookBase();
   const forceMock = new URL(req.url).searchParams.get("mock") === "1" || !base;
@@ -32,7 +37,7 @@ export async function POST(req: Request) {
   if (forceMock) {
     const res: ApproveResponse = {
       report_id,
-      status: action as ReportStatus,
+      status: action,
       reviewer,
       approved_at: action === "approved" ? new Date().toISOString() : null,
     };
@@ -79,13 +84,19 @@ export async function POST(req: Request) {
       );
     }
 
-    const merged: ApproveResponse = {
-      report_id: String(raw.report_id ?? report_id),
-      status: (raw.status as ReportStatus) ?? (action as ReportStatus),
-      reviewer: String(raw.reviewer ?? reviewer),
-      approved_at: (raw.approved_at as string | null) ?? null,
-    };
-    return Response.json(merged);
+    const merged = approveResponseSchema.safeParse({
+      report_id: raw.report_id ?? report_id,
+      status: raw.status ?? action,
+      reviewer: raw.reviewer ?? reviewer,
+      approved_at: raw.approved_at ?? null,
+    });
+    if (!merged.success || merged.data.report_id !== report_id) {
+      return Response.json(
+        { error: "The review service returned an invalid approval response." },
+        { status: 502 },
+      );
+    }
+    return Response.json(merged.data satisfies ApproveResponse);
   } catch {
     return Response.json(
       { error: "Could not reach the review service. Nothing was recorded." },

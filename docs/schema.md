@@ -1,103 +1,123 @@
-# 🔒 LOCKED SCHEMA — v1.0 (frozen, do not change without team sync)
+# Application Contract — v1.1
 
-## 1. Mock Employee Input Schema
+This document describes the current frontend, Next.js API, and exported n8n workflow contract. Changes require synchronized updates to runtime schemas, prompts, workflow exports, fixtures, tests, and this document.
 
+## Employee input
+
+```json
 {
   "employee_id": "emp_001",
   "name": "string",
   "role": "string",
   "self_assessment": "string",
   "manager_feedback": [
-    {"id": "manager_A_1", "reviewer": "string", "text": "string", "date": "YYYY-MM"}
+    { "id": "manager_A_1", "reviewer": "string", "text": "string", "date": "YYYY-MM" }
   ],
   "peer_feedback": [
-    {"id": "peer_B_1", "reviewer": "string", "text": "string", "date": "YYYY-MM"}
+    { "id": "peer_B_1", "reviewer": "string", "text": "string", "date": "YYYY-MM" }
   ],
   "goals": [
-    {"id": "goal_1", "goal": "string", "status": "completed" | "in_progress", "evidence": "string"}
+    { "id": "goal_1", "goal": "string", "status": "completed", "evidence": "string" }
   ],
   "project_outcomes": [
-    {"id": "project_1", "project": "string", "outcome": "string"}
+    { "id": "project_1", "project": "string", "outcome": "string" }
   ],
   "meeting_notes": ["string"]
 }
+```
 
-RULES:
-- Every feedback/goal/project item MUST have a unique "id" field
-- id naming convention: {source_type}_{initial}_{number} e.g. manager_A_1, peer_B_2, goal_1, project_1
-- IDs must be unique within one employee file (not globally)
+All feedback, goal, and project IDs must be unique within an employee record.
 
----
+## Canonical source IDs
 
-## 2. Report Output Schema (what n8n returns to frontend)
+- Self-assessment: `self_1`.
+- Manager/peer feedback, goals, and projects: their input `id` value.
+- Meeting notes: `note_1`, `note_2`, and so on (1-indexed).
 
+## Report output
+
+```json
 {
   "report_id": "uuid-string",
   "employee_id": "emp_001",
   "strengths": [
-    {"text": "string", "source_ids": ["peer_B_1"], "flag": null}
+    { "text": "string", "source_ids": ["peer_B_1"], "flag": null }
   ],
   "growth_areas": [
-    {"text": "string", "source_ids": ["manager_A_1"],
-     "flag": {"type": "unsupported_claim", "reasoning": "string", "severity": "high"} }
+    {
+      "text": "string",
+      "source_ids": ["manager_A_1"],
+      "flag": {
+        "type": "unsupported_claim",
+        "reasoning": "string",
+        "severity": "high"
+      }
+    }
   ],
-  "impact_highlights": [
-    {"text": "string", "source_ids": ["project_1"], "flag": null}
-  ],
-  "goal_progress": [
-    {"text": "string", "source_ids": ["goal_1"], "flag": null}
-  ],
+  "impact_highlights": [],
+  "goal_progress": [],
   "overall_bias_summary": "string",
-  "status": "pending_approval" | "approved" | "rejected",
+  "status": "pending_approval",
   "reviewer": null,
   "approved_at": null,
-  "created_at": "ISO-timestamp"
+  "created_at": "ISO-timestamp",
+  "audit_status": "complete",
+  "audited_claims": 2,
+  "stripped_uncited_count": 0
 }
+```
 
-RULES:
-- "flag" is either null OR an object with exactly: type, reasoning, severity
-- flag.type is ONE OF: "unsupported_claim" | "recency_bias" | "single_source_bias" | "vague_language"
-- flag.severity is ONE OF: "low" | "medium" | "high"
-- source_ids must reference real ids from the input employee file — never invented
+Supported flag types are `unsupported_claim`, `recency_bias`, `single_source_bias`, `vague_language`, and `contradiction`. Severity is `low`, `medium`, or `high`. Every claim must have at least one real source ID. Every claim must receive exactly one bias-audit result; an omitted, duplicate, malformed, or unknown `point_ref` fails generation rather than being interpreted as a clean claim.
 
----
+## Webhooks
 
-## 3. API Contract (n8n Webhooks)
+### `POST /webhook/generate-review`
 
-### POST /webhook/generate-review
-Request:  { "employee_id": "emp_001" }
-Response: <Report Output Schema above, full object>
+Request:
 
-### POST /webhook/approve-review
-Request:  {
+```json
+{ "employee_id": "emp_001" }
+```
+
+Response: the complete report output above.
+
+### `POST /webhook/approve-review`
+
+Request:
+
+```json
+{
   "report_id": "uuid-string",
-  "action": "approve" | "reject" | "edit",
-  "reviewer": "string",
-  "edited_fields": { ... optional, only if action=edit, same shape as report fields }
+  "action": "approved",
+  "reviewer": "Manager",
+  "edits": {
+    "growth_areas": [
+      { "text": "amended claim", "source_ids": ["manager_A_1"], "flag": null }
+    ]
+  },
+  "acknowledged_refs": ["growth_areas[0]"]
 }
-Response: {
+```
+
+`action` is `approved` or `rejected`. Editing alone does not clear a high-severity flag; each such flag must be explicitly reviewed and included in `acknowledged_refs` before approval. Rejection remains available without acknowledgement.
+
+Response:
+
+```json
+{
   "report_id": "uuid-string",
-  "status": "approved" | "rejected" | "pending_approval",
-  "reviewer": "string",
-  "approved_at": "ISO-timestamp" | null
+  "status": "approved",
+  "reviewer": "Manager",
+  "approved_at": "ISO-timestamp"
 }
+```
 
----
+Approval may return `422 unresolved_high_severity_flags`, `404 report_not_found`, or `409 already_finalized`.
 
-## 4. Database Table: reports
+### `GET /webhook/audit-trail`
 
-id            UUID PRIMARY KEY
-employee_id   TEXT NOT NULL
-draft_json    JSONB NOT NULL        -- full Report Output Schema
-status        TEXT DEFAULT 'pending_approval'
-reviewer      TEXT
-approved_at   TIMESTAMP
-edit_history  JSONB DEFAULT '[]'    -- array of {timestamp, reviewer, changes}
-created_at    TIMESTAMP DEFAULT now()
+Returns `{ "entries": [...] }`. The Next.js proxy requires an `employee_id` and filters entries by employee before returning them to the browser.
 
----
+## Persistence
 
-## 🔒 THIS IS FROZEN — v1.0
-Any change requires posting in team chat + explicit ack from Frontend before backend changes it.
-Frontend: build your entire UI against this shape using the sample files below — 
-you do NOT need to wait for the real backend.
+The implemented database shape is defined in `db/schema.sql`. Reports retain `draft_json` and optional `final_json`; decisions and field-level changes are appended to `audit_log`. The current prototype does not yet enforce authentication, row-level security, retention/deletion policy, or database-level append-only permissions; see the governance page and README limitations.

@@ -77,7 +77,7 @@ await page.waitForSelector("text=Approval refused", { timeout: 30_000 });
 await page.waitForTimeout(300);
 await shot("10-blocked");
 
-const ackButtons = page.getByRole("button", { name: "Acknowledge as written" });
+const ackButtons = page.getByRole("button", { name: "Acknowledge flag after review" });
 const n = await ackButtons.count();
 console.log("unresolved flags presented:", n);
 for (let i = 0; i < n; i++) await ackButtons.nth(0).click();

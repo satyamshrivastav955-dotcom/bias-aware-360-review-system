@@ -1,5 +1,6 @@
 import { mockInsufficientEvidence, mockReport } from "@/data/mock-report";
 import { parseBody, unwrapN8n, webhookBase } from "@/lib/n8n";
+import { generateRequestSchema, reportSchema } from "@/lib/schemas";
 import type { Claim, Report, SectionKey } from "@/lib/types";
 import { SECTIONS } from "@/lib/types";
 
@@ -14,31 +15,47 @@ const UPSTREAM_TIMEOUT_MS = 150_000;
 function normalize(raw: Record<string, unknown>, employeeId: string): Report {
   const sections = {} as Record<SectionKey, Claim[]>;
   for (const { key } of SECTIONS) {
-    const v = raw[key];
-    sections[key] = Array.isArray(v)
-      ? (v as Claim[]).map((c) => ({ ...c, flag: c.flag ?? null }))
+    const value = raw[key];
+    sections[key] = Array.isArray(value)
+      ? value.map((claim) => ({ ...(claim as Claim), flag: (claim as Claim).flag ?? null }))
       : [];
   }
-  return {
-    report_id: String(raw.report_id ?? crypto.randomUUID()),
-    employee_id: String(raw.employee_id ?? employeeId),
+
+  const report = reportSchema.parse({
+    report_id: raw.report_id ?? crypto.randomUUID(),
+    employee_id: raw.employee_id ?? employeeId,
     ...sections,
-    overall_bias_summary: String(raw.overall_bias_summary ?? ""),
-    status: (raw.status as Report["status"]) ?? "pending_approval",
-    reviewer: (raw.reviewer as string | null) ?? null,
-    approved_at: (raw.approved_at as string | null) ?? null,
-    // Live n8n returns no created_at, so the arrival time is the honest stamp.
-    created_at: String(raw.created_at ?? new Date().toISOString()),
-    name: raw.name as string | undefined,
-    role: raw.role as string | undefined,
-  };
+    overall_bias_summary: raw.overall_bias_summary ?? "",
+    status: raw.status ?? "pending_approval",
+    reviewer: raw.reviewer ?? null,
+    approved_at: raw.approved_at ?? null,
+    created_at: raw.created_at ?? new Date().toISOString(),
+    name: raw.name,
+    role: raw.role,
+    audit_status: raw.audit_status ?? "complete",
+    audited_claims: raw.audited_claims,
+    stripped_uncited_count: raw.stripped_uncited_count ?? 0,
+  });
+
+  if (report.employee_id !== employeeId) {
+    throw new Error("employee_mismatch");
+  }
+  return report;
 }
 
 export async function POST(req: Request) {
-  const { employee_id } = (await req.json()) as { employee_id?: string };
-  if (!employee_id) {
+  let input: unknown;
+  try {
+    input = await req.json();
+  } catch {
+    return Response.json({ error: "Request body must be valid JSON." }, { status: 400 });
+  }
+
+  const parsed = generateRequestSchema.safeParse(input);
+  if (!parsed.success) {
     return Response.json({ error: "employee_id is required" }, { status: 400 });
   }
+  const { employee_id } = parsed.data;
 
   const base = webhookBase();
   const forceMock =
@@ -77,7 +94,6 @@ export async function POST(req: Request) {
         { status: 502 },
       );
     }
-
     // The evidence gate declined to draft. This is a successful evaluation,
     // not a failure — pass it through so the UI can say what is missing.
     if (raw.status === "insufficient_evidence") {
@@ -94,14 +110,14 @@ export async function POST(req: Request) {
       });
     }
 
-    if (!Array.isArray(raw.strengths)) {
+    try {
+      return Response.json(normalize(raw, employee_id));
+    } catch {
       return Response.json(
-        { error: "The review service returned an unexpected report shape." },
+        { error: "The review service returned an invalid or mismatched report." },
         { status: 502 },
       );
     }
-
-    return Response.json(normalize(raw, employee_id));
   } catch (e) {
     const timedOut = e instanceof Error && e.name === "TimeoutError";
     return Response.json(

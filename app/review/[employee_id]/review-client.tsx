@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { AppHeader } from "@/components/app-header";
 import ClaimRow from "@/components/claim-row";
 import SourceDrawer from "@/components/source-drawer";
 import { biasPrecheck, raisedCount } from "@/lib/bias-precheck";
@@ -123,6 +124,9 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
       }
 
       const next = data as Report;
+      if (next.audit_status !== "complete") {
+        throw new Error("The bias audit is incomplete. This draft cannot be reviewed or approved.");
+      }
       setReport(next);
       setOriginal(next);
       saveReport(id, next);
@@ -277,13 +281,13 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
       .filter(({ claim }) => !flaggedOnly || claim.flag);
 
   return (
-    <main className="mx-auto max-w-7xl px-6 py-8 pb-32">
+    <div className="app-shell">
+      <AppHeader />
+      {/* Same box as .desk-page, but as utilities — .desk-page h1 would beat
+          this page's own heading sizes on specificity. */}
+      <main className="mx-auto w-[min(1060px,100%)] px-10 py-14 pb-32">
       {/* Top Nav */}
-      <nav className="no-print mb-6 flex items-center justify-between border-b border-slate-200 pb-4 text-xs font-semibold text-slate-500">
-        <Link href="/" className="hover:text-slate-900 transition-colors">
-          &larr; Back to Employee Selector
-        </Link>
-        <div className="flex items-center gap-4">
+      <nav className="no-print mb-6 flex items-center justify-end gap-4 border-b border-slate-200 pb-4 text-xs font-semibold text-slate-500">
           {report && (
             <button
               type="button"
@@ -301,7 +305,6 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
           <Link href={`/audit/${id}`} className="hover:text-slate-900 transition-colors">
             View Compliance Audit Trail &rarr;
           </Link>
-        </div>
       </nav>
 
       {/* Header Banner */}
@@ -469,8 +472,8 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
       )}
 
       {blocked && (
-        <section className="no-print mt-10 border-2 border-pen bg-sheet p-7">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.16em] text-pen">
+        <section className="no-print mt-10 border-2 border-rose-400 bg-rose-50 p-7">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.16em] text-rose-700">
             Approval refused &middot; {blocked.unresolved_count} high-severity
             flag
             {blocked.unresolved_count === 1 ? "" : "s"} unaddressed
@@ -506,7 +509,7 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
                     }}
                     className="mt-4 border border-ink px-4 py-2 font-mono text-[11px] uppercase tracking-[0.14em] enabled:hover:bg-ink enabled:hover:text-sheet disabled:border-rule disabled:text-graphite"
                   >
-                    {done ? "Acknowledged" : "Acknowledge as written"}
+                    {done ? "Acknowledged" : "Acknowledge flag after review"}
                   </button>
                 </li>
               );
@@ -514,9 +517,9 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
           </ul>
 
           <p className="mt-5 max-w-3xl font-mono text-[10px] leading-relaxed uppercase tracking-[0.12em] text-graphite">
-            Amend a claim to resolve its flag, or acknowledge it to approve the
-            wording as it stands. Either way the choice is recorded against your
-            name.
+            Editing does not automatically resolve a model-raised issue. Review
+            the amendment and explicitly acknowledge the original flag before
+            approval. The amendment and acknowledgement are recorded separately.
           </p>
         </section>
       )}
@@ -585,6 +588,13 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
               </h2>
 
               <div className="mt-4 flex gap-2 font-mono text-xs">
+                <span className={`rounded border px-2 py-1 font-semibold ${
+                  report.audit_status === "complete"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                    : "border-rose-200 bg-rose-50 text-rose-800"
+                }`}>
+                  Audit {report.audit_status}
+                </span>
                 {counts.high > 0 && (
                   <span className="rounded bg-rose-50 border border-rose-200 px-2 py-1 text-rose-800 font-semibold">
                     {counts.high} High
@@ -613,9 +623,7 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
 
               {ledger && (
                 <p className="mt-3 font-mono text-[10px] leading-relaxed text-slate-500">
-                  {ledger.sourcesCited} of {ledger.sourcesOnFile} sources on file
-                  cited · {ledger.claimsWithoutCitation} of {ledger.claimsTotal}{" "}
-                  claims without a citation
+                  {report.audited_claims ?? ledger.claimsTotal} of {ledger.claimsTotal} claims audited · {ledger.sourcesCited} of {ledger.sourcesOnFile} sources on file cited · {ledger.claimsWithoutCitation} claims without a citation · {report.stripped_uncited_count} uncited model claim{report.stripped_uncited_count === 1 ? "" : "s"} removed
                   {ledger.unresolvedCitations.length > 0 &&
                     ` · ${ledger.unresolvedCitations.length} citation${ledger.unresolvedCitations.length === 1 ? "" : "s"} match no source`}
                 </p>
@@ -625,7 +633,7 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
                 <div className="mt-4 rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs text-blue-900">
                   <p className="font-semibold">Human-in-the-Loop Requirement:</p>
                   <p className="mt-1 text-blue-800 leading-normal">
-                    Approval is blocked while high-severity flags remain unedited. Click &quot;Edit Claim&quot; on any flagged item to resolve it.
+                    Approval is blocked until every high-severity flag is explicitly reviewed and acknowledged. Editing alone does not clear a flag.
                   </p>
                 </div>
               )}
@@ -645,7 +653,7 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
       {/* Floating Bottom Decision Bar */}
       {report && (
         <div className="no-print fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white/95 backdrop-blur-md shadow-lg">
-          <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
+          <div className="mx-auto flex w-[min(1060px,100%)] items-center justify-between px-10 py-3">
             <span className="text-xs font-semibold text-slate-600">
               {locked
                 ? `Status: ${report.status.replace("_", " ").toUpperCase()}`
@@ -666,7 +674,7 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
               <button
                 type="button"
                 onClick={() => setPreview(true)}
-                disabled={busy || locked}
+                disabled={busy || locked || report.audit_status !== "complete"}
                 className="rounded-lg bg-blue-600 px-5 py-2 text-xs font-semibold text-white shadow-xs transition-colors enabled:hover:bg-blue-700 disabled:opacity-40"
               >
                 {dirty ? "Review Edits & Approve" : "Approve Review"}
@@ -734,6 +742,7 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
       )}
 
       <SourceDrawer source={drawer} onClose={() => setDrawer(null)} />
-    </main>
+      </main>
+    </div>
   );
 }

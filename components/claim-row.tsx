@@ -134,12 +134,12 @@ export default function ClaimRow({
           </p>
           {edited && (
             <p className="mt-2 border-t border-current/20 pt-1 font-mono text-[10px] uppercase tracking-wider opacity-80">
-              Claim amended by reviewer — flag invalidated
+              Claim amended — original flag remains until explicitly reviewed
             </p>
           )}
-          {acknowledged && !edited && (
+          {acknowledged && (
             <p className="mt-2 border-t border-current/20 pt-1 font-mono text-[10px] uppercase tracking-wider opacity-80">
-              Acknowledged as written
+              {edited ? "Amendment and original flag acknowledged" : "Acknowledged without amendment"}
             </p>
           )}
         </div>

@@ -1,7 +1,7 @@
 import { pct } from "./stats";
 import type { Employee, Feedback } from "./types";
 
-// ponytail: heuristics, not science. These thresholds separate the three
+// known-limitation: heuristics, not science. These thresholds separate the three
 // employees in data/ the way a human reading the files would; they are stated
 // so a reviewer can disagree with them, not presented as a measurement.
 const T = {

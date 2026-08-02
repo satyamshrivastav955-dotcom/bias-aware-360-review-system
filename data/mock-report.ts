@@ -1,17 +1,25 @@
+import { reportSchema } from "@/lib/schemas";
 import type { InsufficientEvidence, Report } from "@/lib/types";
 import emp001 from "./mock_reports/emp_001.json";
 import emp002 from "./mock_reports/emp_002.json";
 import emp003 from "./mock_reports/emp_003.json";
 
-// ponytail: these are real responses captured from the live n8n instance on
+// known-limitation: these are real responses captured from the live n8n instance on
 // 2026-08-01, not hand-written fixtures — so the offline path renders exactly
 // what the backend produces, and the demo still runs if Gemini rate-limits.
 // Recapture with: curl -X POST $N8N_WEBHOOK_URL/generate-review -d '{"employee_id":"emp_002"}'
-const drafts: Record<string, Report> = {
-  emp_001: emp001 as Report,
-  emp_002: emp002 as Report,
-  emp_003: emp003 as Report,
-};
+const captured = [emp001, emp002, emp003].map((draft) =>
+  reportSchema.parse({
+    ...draft,
+    created_at: new Date(0).toISOString(),
+    audit_status: "complete",
+    stripped_uncited_count: 0,
+  }),
+);
+
+const drafts: Record<string, Report> = Object.fromEntries(
+  captured.map((draft) => [draft.employee_id, draft]),
+);
 
 export function mockReport(employeeId: string): Report | null {
   const d = drafts[employeeId];

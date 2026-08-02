@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Instance | `https://suju1509.app.n8n.cloud` |
+| Instance | `https://{your-n8n-instance}.app.n8n.cloud` |
 | Workflow A | `A - generate-review` (id `LGGoOdiDTVdKrMon`) — **active** |
 | Workflow B | `B - approve-review` (id `mzrCmPUrDAmEidjO`) — **active** |
 | Webhook A | `POST /webhook/generate-review` — body `{"employee_id": "emp_001"}` |
@@ -18,10 +18,10 @@
 Webhook (CORS *, responseNode)
   → Postgres: fetch employee raw_data
   → Code: flatten sources + build synthesis prompt (whitelists valid source_ids)
-  → HTTP: Synthesis Agent    — Gemini 2.5 Flash, responseSchema-constrained, temp 0.2
+  → HTTP: Synthesis Agent    — Gemini 3 Flash (preview), responseSchema-constrained, temp 0.2
   → Code: validate, strip hallucinated source_ids, drop uncited points
   → Code: build bias prompt (adds date distribution + point_ref indexing)
-  → HTTP: Bias Detection Agent — Gemini 2.5 Flash, temp 0.1, 5 checks
+  → HTTP: Bias Detection Agent — Gemini 3 Flash (preview), temp 0.1, 5 checks
   → Code: merge flags onto points by point_ref
   → Postgres: insert report + audit_log row (single CTE)
   → Respond with full report JSON + report_id
@@ -44,10 +44,11 @@ Webhook (CORS *, responseNode)
 ```
 
 **The guard (the human-in-the-loop enforcement):** approval is refused with
-`422 unresolved_high_severity_flags` while any high-severity flag is neither
-edited nor listed in `acknowledged_refs`. The 422 body lists every unresolved
-flag with its reasoning, so the frontend can render exactly what must be
-addressed. Rejection is always allowed.
+`422 unresolved_high_severity_flags` while any high-severity flag is not listed
+in `acknowledged_refs`. Editing alone does not prove remediation; the reviewer
+must explicitly acknowledge the original flag after reviewing any amendment.
+The 422 body lists every unresolved flag with its reasoning. Rejection is always
+allowed.
 
 Other verified responses:
 - `200` — finalized; report status/final_json/reviewer/approved_at updated,
@@ -71,7 +72,7 @@ This feeds the demo's audit-trail screen.
 **Why two Gemini keys:** the free tier caps at 20 requests/min *per key per model*.
 One key shared across both agents made the second call fail with 429 under
 back-to-back runs. Separate keys give each agent an independent quota pool.
-Both HTTP nodes also have `retryOnFail` (5 tries, 15 s backoff) as a safety net.
+Both HTTP nodes also have `retryOnFail` (2 tries, 5 s backoff) as a safety net in the exported workflow.
 
 Header auth config: header name `x-goog-api-key`, value = the API key.
 
@@ -95,7 +96,7 @@ Setup: run `db/schema.sql` then `db/seed.sql`.
 ## Test
 
 ```bash
-curl -X POST https://suju1509.app.n8n.cloud/webhook/generate-review \
+curl -X POST https://{your-n8n-instance}.app.n8n.cloud/webhook/generate-review \
   -H "Content-Type: application/json" \
   -d '{"employee_id": "emp_002"}'
 ```
