@@ -12,7 +12,8 @@ import {
 } from "@/lib/store";
 import type { Feedback } from "@/lib/types";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 type FeedbackKind = "manager" | "peer" | "self";
 
@@ -29,8 +30,14 @@ const KIND_DESCRIPTIONS: Record<FeedbackKind, string> = {
   self: "Employee's own written self-assessment for the review cycle. Replaces any previous self-assessment.",
 };
 
-export default function SubmitPage() {
-  const [selectedEmployee, setSelectedEmployee] = useState(employees[0].employee_id);
+function SubmitPageInner() {
+  const searchParams = useSearchParams();
+  const initialEmployee = (() => {
+    const q = searchParams.get("employee");
+    return employees.find((e) => e.employee_id === q)?.employee_id ?? employees[0].employee_id;
+  })();
+
+  const [selectedEmployee, setSelectedEmployee] = useState(initialEmployee);
   const [kind, setKind] = useState<FeedbackKind>("manager");
   const [reviewer, setReviewer] = useState("");
   const [text, setText] = useState("");
@@ -435,5 +442,13 @@ export default function SubmitPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function SubmitPage() {
+  return (
+    <Suspense fallback={<div className="app-shell"><AppHeader /></div>}>
+      <SubmitPageInner />
+    </Suspense>
   );
 }

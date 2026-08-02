@@ -70,6 +70,7 @@ export default function Home() {
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <Link href="/reviewers" className="rounded border border-rule p-4 text-center font-mono text-[11px] font-bold hover:bg-paper">⌕<br/>Reviewers</Link>
                 <Link href="/audit-reports" className="rounded border border-rule p-4 text-center font-mono text-[11px] font-bold hover:bg-paper">◫<br/>Audit reports</Link>
+                <Link href="/submit" className="rounded border border-rule p-4 text-center font-mono text-[11px] font-bold hover:bg-paper col-span-2">✎<br/>Submit Feedback</Link>
               </div>
             </section>
           </aside>

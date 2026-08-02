@@ -63,6 +63,12 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
   const [flaggedOnly, setFlaggedOnly] = useState(false);
   const [preview, setPreview] = useState(false);
   const [editingSummary, setEditingSummary] = useState(false);
+  const [savedToast, setSavedToast] = useState(false);
+
+  function flashSaved() {
+    setSavedToast(true);
+    setTimeout(() => setSavedToast(false), 2000);
+  }
 
   const id = employee.employee_id;
   const sourceMap = useMemo(() => buildSourceMap(employee), [employee]);
@@ -172,6 +178,7 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
       saveReport(id, next);
       return next;
     });
+    flashSaved();
   }
 
   function updateFlag(key: SectionKey, index: number, flag: Flag | null) {
@@ -184,6 +191,7 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
       saveReport(id, next);
       return next;
     });
+    flashSaved();
   }
 
   function editBiasSummary(text: string) {
@@ -193,6 +201,7 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
       saveReport(id, next);
       return next;
     });
+    flashSaved();
   }
 
   function deleteClaim(key: SectionKey, index: number) {
@@ -383,14 +392,34 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{employee.role}</p>
           </div>
 
-          {hydrated && !report && !busy && (
-            <button
-              type="button"
-              onClick={generate}
-              className="rounded-lg bg-blue-600 px-5 py-2.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-blue-700"
-            >
-              Generate AI Review Draft
-            </button>
+          {hydrated && !busy && (
+            <div className="flex items-center gap-3">
+              {savedToast && (
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 animate-pulse">
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Saved
+                </span>
+              )}
+              {report ? (
+                <button
+                  type="button"
+                  onClick={generate}
+                  className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-xs transition-colors hover:bg-slate-50 dark:hover:bg-slate-700"
+                >
+                  Re-generate Draft
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={generate}
+                  className="rounded-lg bg-blue-600 px-5 py-2.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-blue-700"
+                >
+                  Generate AI Review Draft
+                </button>
+              )}
+            </div>
           )}
         </div>
       </header>
@@ -419,21 +448,21 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
               key={s.id}
               className={`rounded-lg border p-3 ${
                 s.raised
-                  ? "border-amber-200 bg-amber-50"
-                  : "border-slate-200 bg-slate-50"
+                  ? "border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950"
+                  : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50"
               }`}
             >
               <div className="flex items-baseline justify-between gap-3">
-                <p className="text-xs font-semibold text-slate-900">{s.label}</p>
+                <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">{s.label}</p>
                 <span
                   className={`shrink-0 font-mono text-[10px] font-semibold uppercase tracking-wider ${
-                    s.raised ? "text-amber-800" : "text-slate-400"
+                    s.raised ? "text-amber-800 dark:text-amber-400" : "text-slate-400"
                   }`}
                 >
                   {s.raised ? "Outside range" : "Within range"}
                 </span>
               </div>
-              <p className="mt-1 text-xs leading-relaxed text-slate-600">{s.detail}</p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-400">{s.detail}</p>
               {s.refs.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {s.refs.map((sid) => (
@@ -441,7 +470,7 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
                       key={sid}
                       type="button"
                       onClick={() => setDrawer(resolveSource(sourceMap, sid))}
-                      className="rounded border border-slate-300 bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-600 hover:border-slate-500 hover:text-slate-900"
+                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-1.5 py-0.5 font-mono text-[10px] text-slate-600 dark:text-slate-300 hover:border-slate-500 hover:text-slate-900 dark:hover:text-slate-100"
                     >
                       {sid}
                     </button>
@@ -455,7 +484,7 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
 
       {/* Generation Stages */}
       {stage !== null && (
-        <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-xs font-medium text-blue-900">
+        <div className="mt-6 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 p-4 text-xs font-medium text-blue-900 dark:text-blue-300">
           <div className="flex items-center gap-3">
             <div className="h-2 w-2 rounded-full bg-blue-600 animate-ping" />
             <span>{STAGES[stage]}...</span>
@@ -465,13 +494,13 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
 
       {/* Error Alert */}
       {error && (
-        <div className="no-print mt-6 rounded-lg border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">
+        <div className="no-print mt-6 rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950 p-4 text-xs text-rose-800 dark:text-rose-300">
           <p className="font-semibold">Action Refused by System</p>
           <p className="mt-1">{error}</p>
           <button
             type="button"
             onClick={() => (report ? setError(null) : generate())}
-            className="mt-3 rounded border border-rose-300 bg-white px-3 py-1 font-semibold text-rose-700 hover:bg-rose-100"
+            className="mt-3 rounded border border-rose-300 dark:border-rose-700 bg-white dark:bg-rose-900 px-3 py-1 font-semibold text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-800"
           >
             Dismiss
           </button>
@@ -479,24 +508,24 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
       )}
 
       {insufficient && !report && (
-        <section className="no-print mt-6 rounded-xl border border-amber-200 bg-amber-50 p-6 shadow-xs">
-          <p className="text-sm font-bold uppercase tracking-wider text-amber-900">
+        <section className="no-print mt-6 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950 p-6 shadow-xs">
+          <p className="text-sm font-bold uppercase tracking-wider text-amber-900 dark:text-amber-300">
             Not enough evidence to draft a review
           </p>
-          <p className="mt-2 max-w-3xl text-[15px] leading-relaxed text-amber-900">
+          <p className="mt-2 max-w-3xl text-[15px] leading-relaxed text-amber-900 dark:text-amber-300">
             {insufficient.message}
           </p>
 
           {insufficient.missing.length > 0 && (
             <div className="mt-4">
-              <p className="font-mono text-[10px] uppercase tracking-wider text-amber-800">
+              <p className="font-mono text-[10px] uppercase tracking-wider text-amber-800 dark:text-amber-400">
                 Missing from the file
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {insufficient.missing.map((m) => (
                   <span
                     key={m}
-                    className="rounded-full border border-amber-300 bg-white px-3 py-1 font-mono text-[11px] font-semibold text-amber-900"
+                    className="rounded-full border border-amber-300 dark:border-amber-700 bg-white dark:bg-amber-900 px-3 py-1 font-mono text-[11px] font-semibold text-amber-900 dark:text-amber-200"
                   >
                     {MISSING_LABEL[m] ?? m.replace(/_/g, " ")}
                   </span>
@@ -505,21 +534,28 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
             </div>
           )}
 
-          <p className="mt-4 max-w-3xl text-xs leading-relaxed text-amber-800">
+          <p className="mt-4 max-w-3xl text-xs leading-relaxed text-amber-800 dark:text-amber-400">
             A fair review needs at least two independent reviewer voices and
             one objective record — a goal or a project outcome. The system
-            declines to draft rather than invent one. Collect the missing
-            feedback, then generate again.
+            declines to draft rather than invent one.
           </p>
 
-          <button
-            type="button"
-            onClick={generate}
-            disabled={busy}
-            className="mt-5 rounded-lg border border-amber-300 bg-white px-4 py-2 text-xs font-semibold text-amber-900 transition-colors hover:bg-amber-100 disabled:opacity-40"
-          >
-            Check again
-          </button>
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <Link
+              href={`/submit?employee=${id}`}
+              className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-amber-700"
+            >
+              Add missing feedback →
+            </Link>
+            <button
+              type="button"
+              onClick={generate}
+              disabled={busy}
+              className="rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-amber-900 px-4 py-2 text-xs font-semibold text-amber-900 dark:text-amber-200 transition-colors hover:bg-amber-100 dark:hover:bg-amber-800 disabled:opacity-40"
+            >
+              Check again
+            </button>
+          </div>
         </section>
       )}
 
@@ -745,16 +781,25 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
 
       {/* Floating Bottom Decision Bar */}
       {report && (
-        <div className="no-print fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white/95 backdrop-blur-md shadow-lg">
+        <div className="no-print fixed inset-x-0 bottom-0 border-t border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-[#1a1f25]/95 backdrop-blur-md shadow-lg">
           <div className="mx-auto flex w-[min(1060px,100%)] items-center justify-between px-10 py-3">
-            <span className="text-xs font-semibold text-slate-600">
-              {locked
-                ? `Status: ${report.status.replace("_", " ").toUpperCase()}`
-                : dirty
-                  ? "Unsaved modifications present"
-                  : "Awaiting reviewer decision"}
-            </span>
-
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                {locked
+                  ? `Status: ${report.status.replace("_", " ").toUpperCase()}`
+                  : dirty
+                    ? "Unsaved modifications present"
+                    : "Awaiting reviewer decision"}
+              </span>
+              {savedToast && (
+                <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Saved
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -776,6 +821,7 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
           </div>
         </div>
       )}
+
 
       {preview && report && (
         <div className="no-print fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center">
