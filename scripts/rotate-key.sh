@@ -4,6 +4,7 @@
 #
 #   ./scripts/rotate-key.sh synthesis spare1
 #   ./scripts/rotate-key.sh bias spare2
+#   ./scripts/rotate-key.sh synthesis spare3
 #
 # Requires: n8n-cli logged in (n8n-cli config show), run from repo root.
 
@@ -17,6 +18,7 @@ declare -A CREDS=(
   [bias]="z7UvYnCSLpskwvEP:Gemini Key Bias"
   [spare1]="DqoIxMNpNgZOcli8:Gemini API Key"
   [spare2]="uQfQOtV9li43gOUV:Gemini Key Spare 2"
+  [spare3]="TmYbw62pS8LJcBIH:Gemini Key Spare 3"
 )
 
 AGENT="${1:-}"

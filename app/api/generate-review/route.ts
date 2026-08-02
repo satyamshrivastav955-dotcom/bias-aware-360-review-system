@@ -51,10 +51,10 @@ const generateRequestExtended = z.object({
   extra_feedback: z
     .array(
       z.object({
-        id: z.string(),
-        reviewer: z.string(),
-        text: z.string(),
-        date: z.string(),
+        id: z.string().trim().min(1),
+        reviewer: z.string().trim().min(1),
+        text: z.string().trim().min(1),
+        date: z.string().regex(/^\d{4}-\d{2}$/),
         kind: z.enum(["manager", "peer"]).optional(),
       }),
     )

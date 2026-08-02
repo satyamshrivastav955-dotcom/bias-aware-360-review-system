@@ -25,6 +25,17 @@ const ghost = resolveSource(map, "manager_A_99");
 assert.equal(ghost.kind, "unresolved");
 assert.equal(ghost.id, "manager_A_99");
 
+const manualMap = buildSourceMap(emp, {
+  selfAssessment: "Updated self-assessment",
+  extraFeedback: [
+    { id: "manual_manager_1", reviewer: "Manager C", text: "Shipped the migration safely.", date: "2026-08", kind: "manager" },
+    { id: "manual_peer_1", reviewer: "Peer C", text: "Helped debug the rollout.", date: "2026-08", kind: "peer" },
+  ],
+});
+assert.equal(manualMap.self_1.text, "Updated self-assessment");
+assert.equal(manualMap.manual_manager_1.kind, "manager");
+assert.equal(manualMap.manual_peer_1.kind, "peer");
+
 // Ids are unique within an employee — a collision would silently drop a source.
 for (const e of employees) {
   const ids = [

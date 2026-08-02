@@ -1,10 +1,18 @@
-import type { Employee, Source } from "./types";
+import type { Employee, Feedback, Source } from "./types";
+
+type SourceOverrides = {
+  extraFeedback?: Feedback[];
+  selfAssessment?: string | null;
+};
 
 // meeting_notes and self_assessment carry no ids in the employee file, so the
 // backend synthesises them in the "Build synthesis prompt" node and whitelists
 // the result. These two ids mirror that node exactly — change them together or
 // every self/meeting citation renders as unresolved.
-export function buildSourceMap(e: Employee): Record<string, Source> {
+export function buildSourceMap(
+  e: Employee,
+  overrides: SourceOverrides = {},
+): Record<string, Source> {
   const m: Record<string, Source> = {};
   const put = (s: Source) => {
     m[s.id] = s;
@@ -14,7 +22,7 @@ export function buildSourceMap(e: Employee): Record<string, Source> {
     id: "self_1",
     kind: "self",
     reviewer: e.name,
-    text: e.self_assessment,
+    text: overrides.selfAssessment ?? e.self_assessment,
     date: null,
   });
 
@@ -31,6 +39,15 @@ export function buildSourceMap(e: Employee): Record<string, Source> {
     put({
       id: f.id,
       kind: "peer",
+      reviewer: f.reviewer,
+      text: f.text,
+      date: f.date,
+    });
+
+  for (const f of overrides.extraFeedback ?? [])
+    put({
+      id: f.id,
+      kind: f.kind ?? "manager",
       reviewer: f.reviewer,
       text: f.text,
       date: f.date,

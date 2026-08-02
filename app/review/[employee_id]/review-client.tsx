@@ -28,6 +28,7 @@ import {
   type Claim,
   type EditedFields,
   type Employee,
+  type Feedback,
   type Flag,
   type InsufficientEvidence,
   type Report,
@@ -64,6 +65,8 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
   const [preview, setPreview] = useState(false);
   const [editingSummary, setEditingSummary] = useState(false);
   const [savedToast, setSavedToast] = useState(false);
+  const [extraFeedback, setExtraFeedback] = useState<Feedback[]>([]);
+  const [selfAssessment, setSelfAssessment] = useState<string | null>(null);
 
   function flashSaved() {
     setSavedToast(true);
@@ -71,7 +74,10 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
   }
 
   const id = employee.employee_id;
-  const sourceMap = useMemo(() => buildSourceMap(employee), [employee]);
+  const sourceMap = useMemo(
+    () => buildSourceMap(employee, { extraFeedback, selfAssessment }),
+    [employee, extraFeedback, selfAssessment],
+  );
 
   useEffect(() => {
     if (new URLSearchParams(location.search).get("reset") === "1") {
@@ -79,6 +85,8 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
     }
     setReport(loadReport(id));
     setOriginal(loadOriginal(id));
+    setExtraFeedback(loadExtraFeedback(id));
+    setSelfAssessment(loadSelfAssessment(id));
     setHydrated(true);
   }, [id]);
 
