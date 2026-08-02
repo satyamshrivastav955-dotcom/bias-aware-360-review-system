@@ -60,5 +60,11 @@
   "meeting_notes": [
     "2026-03 1:1 — Discussed interest in moving toward analytics engineering; no concrete plan set yet.",
     "2026-06 team retro — Kavya thanked for being helpful and flexible during the Q2 crunch."
-  ]
+  ],
+  "consent": {
+    "granted": true,
+    "granted_at": "2026-02-02",
+    "scope": "360_review",
+    "basis": "explicit_opt_in"
+  }
 }

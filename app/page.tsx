@@ -4,7 +4,6 @@ import { employees } from "@/data/employees";
 import { mockReport } from "@/data/mock-report";
 import { buildSourceMap } from "@/lib/sources";
 import { evidenceLedger, flagCounts, pct, totalFlags } from "@/lib/stats";
-import { REVIEWER } from "@/lib/types";
 
 type Counts = ReturnType<typeof flagCounts>;
 
@@ -30,7 +29,7 @@ export default function Home() {
       <main className="page-content max-w-[1160px]" id="overview">
         <section className="mb-11 flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[.18em] text-graphite">Review cycle H1 2026 · {REVIEWER}</p>
+            <p className="font-mono text-[10px] uppercase tracking-[.18em] text-graphite">Review cycle H1 2026</p>
             <h1 className="mt-3 font-display text-4xl font-semibold tracking-tight md:text-5xl">Editorial overview</h1>
             <p className="mt-3 max-w-2xl text-graphite">There are <strong className="text-[#b65607] dark:text-[#ffb36d]">{employees.length} reviews</strong> requiring evidence-based editorial attention this cycle.</p>
           </div>

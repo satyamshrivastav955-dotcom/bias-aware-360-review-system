@@ -91,6 +91,18 @@ export const employeeSchema = z.object({
     }),
   ),
   meeting_notes: z.array(z.string().trim().min(1)),
+  consent: z
+    .object({
+      granted: z.boolean(),
+      // Validated month/day, so 2026-13-99 is a shape mismatch, not a date.
+      granted_at: z
+        .string()
+        .regex(/^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/)
+        .nullable(),
+      scope: z.literal("360_review"),
+      basis: z.enum(["employment_contract", "explicit_opt_in"]),
+    })
+    .optional(),
 });
 
 export const editedFieldsSchema = z
@@ -112,6 +124,17 @@ export const approveRequestSchema = z.object({
   reviewer: z.string().trim().min(1),
   edits: editedFieldsSchema.optional(),
   acknowledged_refs: z.array(z.string().regex(/^\w+\[\d+\]$/)).optional(),
+});
+
+// One flag acknowledged, recorded the moment the reviewer clicks — not held
+// until approval. A reviewer who acknowledges and then abandons the review has
+// still made a decision, and the trail has to show it.
+export const acknowledgeRequestSchema = z.object({
+  report_id: z.string().trim().min(1),
+  employee_id: z.string().trim().min(1),
+  reviewer: z.string().trim().min(1),
+  point_ref: z.string().regex(/^\w+\[\d+\]$/),
+  flag_type: z.string().trim().min(1),
 });
 
 export const approveResponseSchema = z.object({

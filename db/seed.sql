@@ -70,7 +70,13 @@ insert into employees (employee_id, name, role, raw_data) values
   "meeting_notes": [
     "1:1 (2026-05-12): Discussed delegation — Priya agreed to route at least one meaty task per sprint to Rohan.",
     "Sprint retro (2026-06-20): Team called out Priya''s incident runbook as the reason INC-4211 was resolved quickly."
-  ]
+  ],
+  "consent": {
+    "granted": true,
+    "granted_at": "2026-01-14",
+    "scope": "360_review",
+    "basis": "employment_contract"
+  }
 }'::jsonb),
 ('emp_002', 'Arjun Mehta', 'Frontend Engineer', '{
   "employee_id": "emp_002",
@@ -145,7 +151,13 @@ insert into employees (employee_id, name, role, raw_data) values
   "meeting_notes": [
     "Sprint planning (2026-06-02): Arjun assigned double load covering for Kunal and Sneha (both on leave through June).",
     "1:1 (2026-06-25): Arjun raised that priorities were unclear while covering multiple workstreams; asked manager for a ranked list."
-  ]
+  ],
+  "consent": {
+    "granted": true,
+    "granted_at": "2026-01-20",
+    "scope": "360_review",
+    "basis": "employment_contract"
+  }
 }'::jsonb),
 ('emp_003', 'Kavya Nair', 'Data Analyst', '{
   "employee_id": "emp_003",
@@ -209,7 +221,13 @@ insert into employees (employee_id, name, role, raw_data) values
   "meeting_notes": [
     "2026-03 1:1 — Discussed interest in moving toward analytics engineering; no concrete plan set yet.",
     "2026-06 team retro — Kavya thanked for being helpful and flexible during the Q2 crunch."
-  ]
+  ],
+  "consent": {
+    "granted": true,
+    "granted_at": "2026-02-02",
+    "scope": "360_review",
+    "basis": "explicit_opt_in"
+  }
 }'::jsonb),
 ('emp_004', 'Riya Kapoor', 'Associate Software Engineer', '{
   "employee_id": "emp_004",
@@ -227,7 +245,13 @@ insert into employees (employee_id, name, role, raw_data) values
   "peer_feedback": [],
   "goals": [],
   "project_outcomes": [],
-  "meeting_notes": []
+  "meeting_notes": [],
+  "consent": {
+    "granted": false,
+    "granted_at": null,
+    "scope": "360_review",
+    "basis": "employment_contract"
+  }
 }'::jsonb)
 on conflict (employee_id) do update set
   raw_data = excluded.raw_data,

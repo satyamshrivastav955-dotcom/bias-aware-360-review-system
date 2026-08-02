@@ -71,5 +71,11 @@
   "meeting_notes": [
     "Sprint planning (2026-06-02): Arjun assigned double load covering for Kunal and Sneha (both on leave through June).",
     "1:1 (2026-06-25): Arjun raised that priorities were unclear while covering multiple workstreams; asked manager for a ranked list."
-  ]
+  ],
+  "consent": {
+    "granted": true,
+    "granted_at": "2026-01-20",
+    "scope": "360_review",
+    "basis": "employment_contract"
+  }
 }

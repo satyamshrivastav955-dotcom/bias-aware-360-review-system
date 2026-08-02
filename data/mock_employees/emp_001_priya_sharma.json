@@ -66,5 +66,11 @@
   "meeting_notes": [
     "1:1 (2026-05-12): Discussed delegation — Priya agreed to route at least one meaty task per sprint to Rohan.",
     "Sprint retro (2026-06-20): Team called out Priya's incident runbook as the reason INC-4211 was resolved quickly."
-  ]
+  ],
+  "consent": {
+    "granted": true,
+    "granted_at": "2026-01-14",
+    "scope": "360_review",
+    "basis": "employment_contract"
+  }
 }

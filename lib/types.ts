@@ -71,6 +71,16 @@ export type Goal = {
 };
 export type Project = { id: string; project: string; outcome: string };
 
+// Consent to be reviewed, recorded at collection time, not inferred. Absent
+// consent is a legitimate state (a new joiner who has not been asked yet), so
+// this is optional on the type and checked at the point of use.
+export type Consent = {
+  granted: boolean;
+  granted_at: string | null; // ISO date, YYYY-MM-DD; null when granted is false
+  scope: "360_review";
+  basis: "employment_contract" | "explicit_opt_in";
+};
+
 export type Employee = {
   employee_id: string;
   name: string;
@@ -81,6 +91,7 @@ export type Employee = {
   goals: Goal[];
   project_outcomes: Project[];
   meeting_notes: string[];
+  consent?: Consent;
 };
 
 export type SourceKind =

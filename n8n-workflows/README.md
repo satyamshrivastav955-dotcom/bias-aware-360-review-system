@@ -7,9 +7,11 @@
 | Instance | `https://{your-n8n-instance}.app.n8n.cloud` |
 | Workflow A | `A - generate-review` (id `LGGoOdiDTVdKrMon`) — **active** |
 | Workflow B | `B - approve-review` (id `mzrCmPUrDAmEidjO`) — **active** |
+| Workflow C | `C - acknowledge` — **import `acknowledge.json`, then activate** |
 | Webhook A | `POST /webhook/generate-review` — body `{"employee_id": "emp_001"}` |
 | Webhook B | `POST /webhook/approve-review` — body below |
 | Webhook B2 | `GET /webhook/audit-trail[?report_id=<uuid>]` |
+| Webhook C | `POST /webhook/acknowledge` — body below |
 | Latency | A: ~25–40 s (two sequential LLM calls) · B: <2 s |
 
 ## Architecture (9 nodes)
@@ -60,6 +62,35 @@ Other verified responses:
 `GET /webhook/audit-trail` returns the last 100 audit entries (joined with
 employee_id + report status); `?report_id=<uuid>` filters to one report.
 This feeds the demo's audit-trail screen.
+
+## Workflow C — acknowledge (5 nodes)
+
+`POST /webhook/acknowledge`:
+
+```json
+{
+  "report_id": "<uuid>",
+  "employee_id": "emp_002",
+  "reviewer": "Manager Name",
+  "point_ref": "growth_areas[1]",
+  "flag_type": "single_source_bias"
+}
+```
+
+Writes one `audit_log` row with `action = 'acknowledged'` at the moment the
+reviewer clicks, rather than waiting for approval. Workflow B still records the
+full `acknowledged_refs` list on the approval row; this one exists for the case
+B can never capture — a reviewer who acknowledges a flag and then abandons the
+review. Without it, deciding not to act leaves no server record at all.
+
+The insert is guarded on the report existing (`where exists (select 1 from
+reports ...)`), so an unknown `report_id` writes nothing and the response
+reports `ok: false` rather than planting an orphan row in the trail.
+
+The caller (`app/api/acknowledge/route.ts`) never fails the reviewer's flow on
+this: the acknowledgement is already true in the browser, so an unreachable
+webhook returns `{recorded: false}` and the UI says the server copy is missing
+instead of pretending the record exists.
 
 ## Credentials (already created on the instance)
 

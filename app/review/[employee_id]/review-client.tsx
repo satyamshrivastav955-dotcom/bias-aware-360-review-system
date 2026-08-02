@@ -4,8 +4,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AppHeader } from "@/components/app-header";
 import ClaimRow from "@/components/claim-row";
+import { ConsentBadge } from "@/components/consent-badge";
+import { useReviewer } from "@/components/reviewer-identity";
 import SourceDrawer from "@/components/source-drawer";
 import { biasPrecheck, raisedCount } from "@/lib/bias-precheck";
+import { reauditClaim } from "@/lib/reaudit";
 import { buildSourceMap, resolveSource } from "@/lib/sources";
 import { evidenceLedger, flagCounts, totalFlags } from "@/lib/stats";
 import {
@@ -19,7 +22,6 @@ import {
   saveReport,
 } from "@/lib/store";
 import {
-  REVIEWER,
   SECTIONS,
   flagLabel,
   pointRef,
@@ -29,6 +31,7 @@ import {
   type EditedFields,
   type Employee,
   type Flag,
+  type FlagType,
   type InsufficientEvidence,
   type Report,
   type SectionKey,
@@ -55,6 +58,9 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
   const [drawer, setDrawer] = useState<Source | null>(null);
   const [blocked, setBlocked] = useState<ApproveBlocked | null>(null);
   const [acked, setAcked] = useState<string[]>([]);
+  // Refs the browser recorded but the server did not. Shown rather than
+  // swallowed: a trail with a hole in it should say where the hole is.
+  const [ackUnrecorded, setAckUnrecorded] = useState<string[]>([]);
   // Set when the backend's evidence gate declines to draft: too little
   // feedback on file. Renders what is missing instead of a report.
   const [insufficient, setInsufficient] = useState<InsufficientEvidence | null>(
@@ -71,6 +77,10 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
   }
 
   const id = employee.employee_id;
+  // The name the reviewer gave themselves, read live so a rename mid-session
+  // attributes subsequent decisions correctly. Falls back to the shared
+  // default. Attribution, not authentication — nothing verifies it.
+  const reviewer = useReviewer();
   const sourceMap = useMemo(() => buildSourceMap(employee), [employee]);
 
   useEffect(() => {
@@ -99,6 +109,15 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
   );
 
   async function generate() {
+    // Consent is checked before anything is sent, not after a draft exists.
+    // Drafting first and refusing later would already have put this person's
+    // feedback through a model they never agreed to be reviewed by.
+    if (!employee.consent?.granted) {
+      setError(
+        "This employee has not consented to a 360° review, so no draft can be generated. Consent is recorded where the feedback is collected, not here.",
+      );
+      return;
+    }
     if (locked && !confirm("This review is already finalized. Replace it with a new draft?"))
       return;
 
@@ -154,7 +173,7 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
       );
       appendAudit(id, {
         ts: new Date().toISOString(),
-        reviewer: REVIEWER,
+        reviewer,
         action: "generated",
         report_id: next.report_id,
         summary: `Draft created · ${flags} claim${flags === 1 ? "" : "s"} flagged`,
@@ -254,6 +273,42 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
     );
   }
 
+  // Acknowledging is a decision, so it goes to the server trail as it happens
+  // rather than riding along with the eventual approval — a reviewer who
+  // acknowledges and then abandons the review has still decided something.
+  // The local record is written first and unconditionally: the reviewer did
+  // acknowledge it, and an unreachable webhook must not make the UI pretend
+  // otherwise. What it can do is say the server copy is missing.
+  async function acknowledge(pointRefValue: string, flagType: string) {
+    if (!report) return;
+    setAcked((p) => [...p, pointRefValue]);
+    appendAudit(id, {
+      ts: new Date().toISOString(),
+      reviewer,
+      action: "acknowledged",
+      report_id: report.report_id,
+      summary: `Acknowledged ${flagLabel(flagType as FlagType).toLowerCase()} at ${pointRefValue} without amending it`,
+    });
+
+    try {
+      const res = await fetch("/api/acknowledge", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          report_id: report.report_id,
+          employee_id: id,
+          reviewer,
+          point_ref: pointRefValue,
+          flag_type: flagType,
+        }),
+      });
+      const data = await res.json();
+      if (!data.recorded) setAckUnrecorded((p) => [...p, pointRefValue]);
+    } catch {
+      setAckUnrecorded((p) => [...p, pointRefValue]);
+    }
+  }
+
   // Every amendment that will be sent, paired with the wording it replaces —
   // the reviewer signs off on the diff, not on a remembered impression of it.
   function amendments() {
@@ -282,7 +337,7 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
         body: JSON.stringify({
           report_id: report.report_id,
           action,
-          reviewer: REVIEWER,
+          reviewer,
           ...(carriesEdits ? { edits: fields } : {}),
           ...(acked.length ? { acknowledged_refs: acked } : {}),
         }),
@@ -319,7 +374,7 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
 
       appendAudit(id, {
         ts: new Date().toISOString(),
-        reviewer: REVIEWER,
+        reviewer,
         action,
         report_id: report.report_id,
         summary: notes.length
@@ -390,6 +445,9 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
             </div>
             <h1 className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">{employee.name}</h1>
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{employee.role}</p>
+            <div className="mt-2">
+              <ConsentBadge consent={employee.consent} />
+            </div>
           </div>
 
           {hydrated && !busy && (
@@ -414,7 +472,13 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
                 <button
                   type="button"
                   onClick={generate}
-                  className="rounded-lg bg-blue-600 px-5 py-2.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-blue-700"
+                  disabled={!employee.consent?.granted}
+                  title={
+                    employee.consent?.granted
+                      ? undefined
+                      : "No consent on file for a 360° review"
+                  }
+                  className="rounded-lg bg-blue-600 px-5 py-2.5 text-xs font-semibold text-white shadow-xs transition-colors enabled:hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-500"
                 >
                   Generate AI Review Draft
                 </button>
@@ -585,20 +649,16 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
                   <button
                     type="button"
                     disabled={done || busy}
-                    onClick={() => {
-                      setAcked((p) => [...p, u.point_ref]);
-                      appendAudit(id, {
-                        ts: new Date().toISOString(),
-                        reviewer: REVIEWER,
-                        action: "acknowledged",
-                        report_id: report!.report_id,
-                        summary: `Acknowledged ${flagLabel(u.type).toLowerCase()} at ${u.point_ref} without amending it`,
-                      });
-                    }}
+                    onClick={() => acknowledge(u.point_ref, u.type)}
                     className="mt-4 border border-ink px-4 py-2 font-mono text-[11px] uppercase tracking-[0.14em] enabled:hover:bg-ink enabled:hover:text-sheet disabled:border-rule disabled:text-graphite"
                   >
                     {done ? "Acknowledged" : "Acknowledge flag after review"}
                   </button>
+                  {ackUnrecorded.includes(u.point_ref) && (
+                    <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-graphite">
+                      Recorded here, not on the server — the audit service did not confirm it
+                    </p>
+                  )}
                 </li>
               );
             })}
@@ -648,20 +708,26 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
                   <p className="text-xs text-slate-400 italic">No flagged claims in this section.</p>
                 ) : (
                   <div className="space-y-4">
-                    {visible(report[key]).map(({ claim, i }) => (
-                      <ClaimRow
-                        key={i}
-                        claim={claim}
-                        sources={claimSources(claim)}
-                        canEdit={canEdit}
-                        edited={claim.text !== original?.[key][i]?.text}
-                        acknowledged={acked.includes(pointRef(key, i))}
-                        onChange={(text) => editClaim(key, i, text)}
-                        onDelete={canEdit ? () => deleteClaim(key, i) : undefined}
-                        onFlagChange={canEdit ? (flag) => updateFlag(key, i, flag) : undefined}
-                        onCite={setDrawer}
-                      />
-                    ))}
+                    {visible(report[key]).map(({ claim, i }) => {
+                      // An edit to a flagged claim is re-checked by the
+                      // deterministic local instrument, not silently re-scored.
+                      const edited = claim.text !== original?.[key][i]?.text;
+                      return (
+                        <ClaimRow
+                          key={i}
+                          claim={claim}
+                          sources={claimSources(claim)}
+                          canEdit={canEdit}
+                          edited={edited}
+                          reaudit={edited && claim.text.trim() ? reauditClaim(claim.text) : null}
+                          acknowledged={acked.includes(pointRef(key, i))}
+                          onChange={(text) => editClaim(key, i, text)}
+                          onDelete={canEdit ? () => deleteClaim(key, i) : undefined}
+                          onFlagChange={canEdit ? (flag) => updateFlag(key, i, flag) : undefined}
+                          onCite={setDrawer}
+                        />
+                      );
+                    })}
                   </div>
                 )}
 
@@ -830,7 +896,7 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
               What will be recorded
             </h2>
             <p className="mt-2 text-xs leading-relaxed text-slate-500">
-              Approving sends this to the review service under your name, {REVIEWER}. Nothing else about the draft changes.
+              Approving sends this to the review service under your name, {reviewer}. Nothing else about the draft changes.
             </p>
 
             <h3 className="mt-5 font-mono text-[10px] uppercase tracking-wider text-slate-400">

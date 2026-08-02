@@ -1,0 +1,186 @@
+{
+  "name": "C - acknowledge",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "acknowledge",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "wh-ack",
+      "name": "Webhook acknowledge",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -900,
+        0
+      ],
+      "webhookId": "acknowledge"
+    },
+    {
+      "parameters": {
+        "jsCode": "// An acknowledgement is a decision, so it is written when the reviewer makes\n// it rather than being carried along until approval. Approval writes its own\n// summary row with the full acknowledged_refs list; this row records the\n// individual moment, so the trail shows a reviewer who acknowledged and then\n// walked away — the case the approval row can never capture.\nconst body = $('Webhook acknowledge').first().json.body || {};\n\nconst reportId = (body.report_id || '').trim();\nconst employeeId = (body.employee_id || '').trim();\nconst reviewer = (body.reviewer || '').trim();\nconst pointRef = (body.point_ref || '').trim();\nconst flagType = (body.flag_type || '').trim();\n\nif (!reportId || !employeeId || !reviewer || !pointRef) {\n  return [{ json: { __http_status: 400, ok: false, error: 'invalid_acknowledgement', detail: 'report_id, employee_id, reviewer and point_ref are all required' } }];\n}\nif (!/^\\w+\\[\\d+\\]$/.test(pointRef)) {\n  return [{ json: { __http_status: 400, ok: false, error: 'invalid_point_ref', detail: 'point_ref must look like growth_areas[1]' } }];\n}\n\nreturn [{ json: {\n  __http_status: 200,\n  ok: true,\n  report_id: reportId,\n  employee_id: employeeId,\n  reviewer,\n  diff: JSON.stringify({ acknowledged_refs: [pointRef], flag_type: flagType || null })\n} }];"
+      },
+      "id": "code-validate",
+      "name": "Validate acknowledgement",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -700,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "is-ok",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-valid",
+      "name": "Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -500,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into audit_log (report_id, actor, action, diff)\nselect $1::uuid, $2, 'acknowledged', $3::jsonb\n where exists (select 1 from reports where id = $1::uuid)\nreturning report_id, action, actor, at",
+        "options": {
+          "queryReplacement": "={{ $json.report_id }},{{ $json.reviewer }},{{ $json.diff }}"
+        }
+      },
+      "id": "pg-ack",
+      "name": "Record acknowledgement",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -300,
+        -100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "YVgSP5ue1kUxzfQH",
+          "name": "Supabase Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: $json.at !== undefined, report_id: $('Validate acknowledgement').first().json.report_id, employee_id: $('Validate acknowledgement').first().json.employee_id, actor: $('Validate acknowledgement').first().json.reviewer, at: $json.at || null }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-ok",
+      "name": "Respond recorded",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -100,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": "={{ $json.__http_status || 400 }}"
+        }
+      },
+      "id": "respond-err",
+      "name": "Respond rejected",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -300,
+        120
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook acknowledge": {
+      "main": [
+        [
+          {
+            "node": "Validate acknowledgement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate acknowledgement": {
+      "main": [
+        [
+          {
+            "node": "Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid?": {
+      "main": [
+        [
+          {
+            "node": "Record acknowledgement",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record acknowledgement": {
+      "main": [
+        [
+          {
+            "node": "Respond recorded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

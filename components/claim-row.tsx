@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Claim, Flag, FlagType, Severity, Source } from "@/lib/types";
 import { flagLabel } from "@/lib/types";
 import { FLAG_TYPES } from "@/lib/schemas";
+import type { ReauditSignal } from "@/lib/reaudit";
 
 const SEVERITY_BADGE: Record<Severity, string> = {
   high: "bg-rose-50 dark:bg-rose-950 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300",
@@ -18,6 +19,7 @@ export default function ClaimRow({
   sources,
   canEdit,
   edited,
+  reaudit,
   acknowledged,
   onChange,
   onDelete,
@@ -28,6 +30,7 @@ export default function ClaimRow({
   sources: Source[];
   canEdit: boolean;
   edited: boolean;
+  reaudit: ReauditSignal[] | null;
   acknowledged: boolean;
   onChange: (text: string) => void;
   onDelete?: () => void;
@@ -40,6 +43,19 @@ export default function ClaimRow({
   const ref = useRef<HTMLTextAreaElement>(null);
   const flagRef = useRef<HTMLTextAreaElement>(null);
   const flag = claim.flag;
+
+  // Only an amended claim is re-checked. The model already judged the original
+  // wording; this runs on what the reviewer replaced it with.
+  const hits = reaudit?.filter((s) => s.raised) ?? [];
+  // Personality and appearance wording is the serious tell; an absolute is a
+  // middling one; a missing anchor alone is the mildest.
+  const worst: Severity | null = hits.some((s) => s.id === "personality" || s.id === "appearance")
+    ? "high"
+    : hits.some((s) => s.id === "absolute")
+      ? "medium"
+      : hits.length
+        ? "low"
+        : null;
 
   useEffect(() => {
     if (!editing || !ref.current) return;
@@ -251,6 +267,38 @@ export default function ClaimRow({
             </button>
           </div>
         )
+      )}
+
+      {/* ── Re-audit of the amendment ────────────────────────── */}
+      {reaudit && (
+        <div
+          className={`mt-3 rounded-md border p-3 ${
+            worst ? SEVERITY_BADGE[worst] : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="font-mono text-xs font-semibold uppercase tracking-wider">
+              Re-check of amendment{worst ? ` (${worst} severity)` : " — clear"}
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-wider opacity-70">
+              Deterministic · no AI
+            </span>
+          </div>
+          {hits.length > 0 ? (
+            <ul className="mt-2 space-y-1.5">
+              {hits.map((s) => (
+                <li key={s.id} className="text-xs leading-relaxed">
+                  <span className="font-semibold">{s.label}:</span> {s.detail}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-1 text-xs leading-relaxed">
+              The amended wording passes every rule this check applies. It does not clear
+              the flag above — only a reviewer can do that.
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

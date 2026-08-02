@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { ReviewerIdentity } from "@/components/reviewer-identity";
 
 const links = [
   { href: "/", label: "Overview" },
@@ -45,7 +46,8 @@ export function AppHeader() {
         </nav>
         <div className="app-actions">
           <ThemeToggle />
-          <span className="avatar" aria-label="Manager profile">M</span>
+          <ReviewerIdentity />
+          <span className="avatar" aria-hidden="true">M</span>
           <button className={open ? "hamburger open" : "hamburger"} aria-label="Toggle navigation" aria-expanded={open} onClick={() => setOpen(!open)}>
             <span /><span /><span />
           </button>

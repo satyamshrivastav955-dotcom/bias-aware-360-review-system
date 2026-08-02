@@ -11,6 +11,7 @@ const biasPrompt = read("prompts/bias_detection_agent.txt");
 const pipeline = read("scripts/test_pipeline.sh");
 const generateWorkflow = JSON.parse(read("n8n-workflows/generate-review.json"));
 const approveWorkflow = JSON.parse(read("n8n-workflows/approve-review.json"));
+const acknowledgeWorkflow = JSON.parse(read("n8n-workflows/acknowledge.json"));
 
 assert.match(synthesisPrompt, /self_1/);
 assert.match(synthesisPrompt, /note_1/);
@@ -38,5 +39,23 @@ const actualGuardCode =
     .parameters.jsCode as string);
 assert.doesNotMatch(actualGuardCode, /!editedRefs\.has\(ref\)/);
 assert.match(actualGuardCode, /acknowledged_refs/);
+
+// The acknowledge webhook must write its own audit_log row. If it ever only
+// echoed success without inserting, the governance page's claim that declining
+// to act is recorded would be false and nothing else here would catch it.
+const ackNode = acknowledgeWorkflow.nodes.find(
+  (node: { name: string }) => node.name === "Record acknowledgement",
+);
+assert.match(ackNode.parameters.query as string, /insert into audit_log/);
+assert.match(ackNode.parameters.query as string, /'acknowledged'/);
+// The insert is guarded on the report existing, so a bad report_id cannot
+// plant an orphan row in the trail.
+assert.match(ackNode.parameters.query as string, /exists \(select 1 from reports/);
+assert.equal(
+  acknowledgeWorkflow.nodes.find(
+    (node: { type: string }) => node.type === "n8n-nodes-base.webhook",
+  ).parameters.path,
+  "acknowledge",
+);
 
 console.log("contracts: ok");

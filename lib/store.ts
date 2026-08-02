@@ -48,6 +48,30 @@ export function clearEmployee(employeeId: string) {
   }
 }
 
+// ─── Reviewer identity ───────────────────────────────────────────────────────
+// Attribution, not authentication. Nothing verifies this name — it is the
+// reviewer stating who they are so the audit trail says something more useful
+// than "Manager". Stored once for the browser, not per employee.
+
+const REVIEWER_KEY = "br:reviewer";
+
+export const loadReviewer = (): string | null => {
+  try {
+    return localStorage.getItem(REVIEWER_KEY);
+  } catch {
+    return null;
+  }
+};
+
+export function saveReviewer(name: string) {
+  try {
+    localStorage.setItem(REVIEWER_KEY, name);
+  } catch {}
+  // localStorage does not notify the tab that wrote it, and the header and the
+  // review page both display this. Without it, renaming yourself updates one.
+  window.dispatchEvent(new Event("reviewer-changed"));
+}
+
 // ─── Manual feedback submitted via the /submit page ─────────────────────────
 // Stored as an array of Feedback objects, appended one at a time.
 

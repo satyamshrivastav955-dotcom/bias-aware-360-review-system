@@ -14,5 +14,11 @@
   "peer_feedback": [],
   "goals": [],
   "project_outcomes": [],
-  "meeting_notes": []
+  "meeting_notes": [],
+  "consent": {
+    "granted": false,
+    "granted_at": null,
+    "scope": "360_review",
+    "basis": "employment_contract"
+  }
 }
