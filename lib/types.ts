@@ -62,6 +62,7 @@ export type Feedback = {
   reviewer: string;
   text: string;
   date: string;
+  kind?: "manager" | "peer";
 };
 export type Goal = {
   id: string;
