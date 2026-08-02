@@ -1,4 +1,5 @@
 import { mockInsufficientEvidence, mockReport } from "@/data/mock-report";
+import { getEmployee } from "@/data/employees";
 import { parseBody, unwrapN8n, webhookBase } from "@/lib/n8n";
 import { reportSchema } from "@/lib/schemas";
 import { z } from "zod";
@@ -75,6 +76,21 @@ export async function POST(req: Request) {
     return Response.json({ error: "employee_id is required" }, { status: 400 });
   }
   const { employee_id, extra_feedback, self_assessment } = parsed.data;
+
+  // This is a server-side policy boundary, not just a UI convenience. The
+  // review page also disables its button, but direct HTTP requests must never
+  // be able to send a non-consenting employee's feedback to n8n or a model.
+  const employee = getEmployee(employee_id);
+  if (employee && !employee.consent?.granted) {
+    return Response.json(
+      {
+        error:
+          "This employee has not consented to a 360° review, so no draft can be generated.",
+        code: "consent_not_granted",
+      },
+      { status: 403 },
+    );
+  }
 
   const base = webhookBase();
   const forceMock =
