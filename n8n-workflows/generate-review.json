@@ -47,7 +47,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Build the synthesis prompt + flat source list.\nconst row = $input.first().json;\nif (!row || !row.raw_data) {\n  const body = $('Webhook generate-review').first().json.body || {};\n  return [{ json: { ok: false, __http_status: body.employee_id ? 404 : 400, error: body.employee_id ? 'employee_not_found' : 'employee_id_required', employee_id: body.employee_id || null } }];\n}\nconst __ok = true;\nconst d = typeof row.raw_data === 'string' ? JSON.parse(row.raw_data) : row.raw_data;\n\n// Flatten every input into a numbered source list with stable IDs.\nconst sources = [];\nsources.push({ source_id: 'self_1', type: 'self_assessment', date: null, text: d.self_assessment });\nfor (const m of d.manager_feedback || []) sources.push({ source_id: m.id, type: 'manager_feedback', reviewer: m.reviewer, date: m.date, text: m.text });\nfor (const p of d.peer_feedback || []) sources.push({ source_id: p.id, type: 'peer_feedback', reviewer: p.reviewer, date: p.date, text: p.text });\nfor (const g of d.goals || []) sources.push({ source_id: g.id, type: 'goal', date: null, text: `Goal: ${g.goal} | Status: ${g.status} | Evidence: ${g.evidence}` });\nfor (const pr of d.project_outcomes || []) sources.push({ source_id: pr.id, type: 'project_outcome', date: null, text: `Project: ${pr.project} | Outcome: ${pr.outcome}` });\n(d.meeting_notes || []).forEach((n, i) => sources.push({ source_id: `note_${i + 1}`, type: 'meeting_note', date: null, text: n }));\n\nconst validIds = sources.map(s => s.source_id);\n\nconst prompt = `You are an HR performance review synthesizer. Given the numbered source list below for ${d.name} (${d.role}), produce a structured performance review.\n\nRules:\n- Every point MUST cite one or more source_id values from the list. Only these IDs are valid: ${validIds.join(', ')}\n- Do NOT invent facts absent from the sources.\n- Each point must be specific and evidence-based, quoting concrete outcomes, dates, or numbers where the sources contain them.\n- 2-4 points per section.\n- CRITICAL: Represent each source's claim FAITHFULLY. Do not soften, sanitize, or reword a reviewer's assertion into diplomatic language. If a manager says 'consistently misses deadlines', the growth area must state that claim as made - do NOT rewrite it as 'an opportunity to improve deadline adherence'. Your job is faithful synthesis, not diplomacy. A separate bias auditor downstream must be able to see the original strength of each claim in order to fairness-check it; softening claims defeats that audit and harms the employee.\n- Do not add mitigating context to a negative claim unless a source explicitly provides it (cite that source if so).\n\nSOURCES:\n${JSON.stringify(sources, null, 2)}`;\n\nreturn [{ json: { ok: true, employee_id: d.employee_id, name: d.name, role: d.role, prompt, sources, validIds } }];"
+        "jsCode": "// Build the synthesis prompt + flat source list.\nconst row = $input.first().json;\nif (!row || !row.raw_data) {\n  const body = $('Webhook generate-review').first().json.body || {};\n  return [{ json: { ok: false, __http_status: body.employee_id ? 404 : 400, error: body.employee_id ? 'employee_not_found' : 'employee_id_required', employee_id: body.employee_id || null } }];\n}\nconst __ok = true;\nconst d = typeof row.raw_data === 'string' ? JSON.parse(row.raw_data) : row.raw_data;\n\n// Flatten every input into a numbered source list with stable IDs.\nconst sources = [];\nsources.push({ source_id: 'self_1', type: 'self_assessment', date: null, text: d.self_assessment });\nfor (const m of d.manager_feedback || []) sources.push({ source_id: m.id, type: 'manager_feedback', reviewer: m.reviewer, date: m.date, text: m.text });\nfor (const p of d.peer_feedback || []) sources.push({ source_id: p.id, type: 'peer_feedback', reviewer: p.reviewer, date: p.date, text: p.text });\nfor (const g of d.goals || []) sources.push({ source_id: g.id, type: 'goal', date: null, text: `Goal: ${g.goal} | Status: ${g.status} | Evidence: ${g.evidence}` });\nfor (const pr of d.project_outcomes || []) sources.push({ source_id: pr.id, type: 'project_outcome', date: null, text: `Project: ${pr.project} | Outcome: ${pr.outcome}` });\n(d.meeting_notes || []).forEach((n, i) => sources.push({ source_id: `note_${i + 1}`, type: 'meeting_note', date: null, text: n }));\n\nconst validIds = sources.map(s => s.source_id);\n\n// Deterministic evidence gate — runs before any model call. A fair 360 review\n// needs at least two independent reviewer voices and at least one objective\n// record (a goal or a project outcome). Below that, decline to draft: anything\n// the model produced would be invention, not synthesis.\nconst evidence = {\n  self_assessment: d.self_assessment ? 1 : 0,\n  manager_feedback: (d.manager_feedback || []).length,\n  peer_feedback: (d.peer_feedback || []).length,\n  goals: (d.goals || []).length,\n  project_outcomes: (d.project_outcomes || []).length,\n  meeting_notes: (d.meeting_notes || []).length\n};\nconst missing = ['manager_feedback', 'peer_feedback', 'goals', 'project_outcomes'].filter(k => evidence[k] === 0);\nconst insufficient = (evidence.manager_feedback + evidence.peer_feedback) < 2\n  || (evidence.goals + evidence.project_outcomes) < 1;\n\n\nconst prompt = `You are an HR performance review synthesizer. Given the numbered source list below for ${d.name} (${d.role}), produce a structured performance review.\n\nRules:\n- Every point MUST cite one or more source_id values from the list. Only these IDs are valid: ${validIds.join(', ')}\n- Do NOT invent facts absent from the sources.\n- Each point must be specific and evidence-based, quoting concrete outcomes, dates, or numbers where the sources contain them.\n- 2-4 points per section.\n- CRITICAL: Represent each source's claim FAITHFULLY. Do not soften, sanitize, or reword a reviewer's assertion into diplomatic language. If a manager says 'consistently misses deadlines', the growth area must state that claim as made - do NOT rewrite it as 'an opportunity to improve deadline adherence'. Your job is faithful synthesis, not diplomacy. A separate bias auditor downstream must be able to see the original strength of each claim in order to fairness-check it; softening claims defeats that audit and harms the employee.\n- Do not add mitigating context to a negative claim unless a source explicitly provides it (cite that source if so).\n\nSOURCES:\n${JSON.stringify(sources, null, 2)}`;\n\nreturn [{ json: { ok: true, insufficient, missing, evidence, employee_id: d.employee_id, name: d.name, role: d.role, prompt, sources, validIds } }];"
       },
       "id": "code-prompt",
       "name": "Build synthesis prompt",
@@ -247,6 +247,55 @@
         -480,
         220
       ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "sufficient",
+              "leftValue": "={{ $json.insufficient }}",
+              "rightValue": "={{ false }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-sufficient",
+      "name": "Evidence sufficient?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -460,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, status: 'insufficient_evidence', employee_id: $json.employee_id, name: $json.name, role: $json.role, message: 'Not enough independent feedback on file to draft a fair, evidence-grounded review. No report was generated and no AI output was invented.', missing: $json.missing, evidence: $json.evidence }) }}",
+        "options": {}
+      },
+      "id": "respond-insufficient",
+      "name": "Respond insufficient evidence",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -240,
+        260
+      ]
     }
   ],
   "connections": {
@@ -353,7 +402,7 @@
       "main": [
         [
           {
-            "node": "Synthesis Agent (Gemini)",
+            "node": "Evidence sufficient?",
             "type": "main",
             "index": 0
           }
@@ -361,6 +410,24 @@
         [
           {
             "node": "Respond not found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evidence sufficient?": {
+      "main": [
+        [
+          {
+            "node": "Synthesis Agent (Gemini)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond insufficient evidence",
             "type": "main",
             "index": 0
           }

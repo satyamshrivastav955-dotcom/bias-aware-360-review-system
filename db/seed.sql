@@ -210,6 +210,24 @@ insert into employees (employee_id, name, role, raw_data) values
     "2026-03 1:1 — Discussed interest in moving toward analytics engineering; no concrete plan set yet.",
     "2026-06 team retro — Kavya thanked for being helpful and flexible during the Q2 crunch."
   ]
+}'::jsonb),
+('emp_004', 'Riya Kapoor', 'Associate Software Engineer', '{
+  "employee_id": "emp_004",
+  "name": "Riya Kapoor",
+  "role": "Associate Software Engineer",
+  "self_assessment": "I joined the team five weeks ago and have mostly been onboarding. I finished the new-hire training and picked up my first two small tickets. I am still learning the codebase and our release process.",
+  "manager_feedback": [
+    {
+      "id": "manager_K_1",
+      "reviewer": "Manager K",
+      "text": "Riya has settled in well so far and asks good questions in standup. It is too early in her tenure to say much more than that.",
+      "date": "2026-07"
+    }
+  ],
+  "peer_feedback": [],
+  "goals": [],
+  "project_outcomes": [],
+  "meeting_notes": []
 }'::jsonb)
 on conflict (employee_id) do update set
   raw_data = excluded.raw_data,

@@ -137,6 +137,19 @@ export type ApproveResponse = {
   approved_at: string | null;
 };
 
+// Workflow A declines to draft when the evidence on file is too thin (fewer
+// than two reviewer voices, or no objective record at all). This is that
+// response, passed through by the generate route — a refusal, not a report.
+export type InsufficientEvidence = {
+  insufficient: true;
+  employee_id: string;
+  name?: string;
+  role?: string;
+  message: string;
+  missing: string[];
+  evidence: Record<string, number>;
+};
+
 export type EditedFields = Partial<Record<SectionKey, Claim[]>>;
 
 export const SECTIONS: { key: SectionKey; title: string; note: string }[] = [

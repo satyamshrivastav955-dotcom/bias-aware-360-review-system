@@ -1,4 +1,4 @@
-import { mockReport } from "@/data/mock-report";
+import { mockInsufficientEvidence, mockReport } from "@/data/mock-report";
 import { parseBody, unwrapN8n, webhookBase } from "@/lib/n8n";
 import { generateRequestSchema, reportSchema } from "@/lib/schemas";
 import type { Claim, Report, SectionKey } from "@/lib/types";
@@ -62,6 +62,8 @@ export async function POST(req: Request) {
     new URL(req.url).searchParams.get("mock") === "1" || !base;
 
   if (forceMock) {
+    const insufficient = mockInsufficientEvidence(employee_id);
+    if (insufficient) return Response.json(insufficient);
     const report = mockReport(employee_id);
     if (!report) {
       return Response.json(
@@ -92,6 +94,22 @@ export async function POST(req: Request) {
         { status: 502 },
       );
     }
+    // The evidence gate declined to draft. This is a successful evaluation,
+    // not a failure — pass it through so the UI can say what is missing.
+    if (raw.status === "insufficient_evidence") {
+      return Response.json({
+        insufficient: true,
+        employee_id: String(raw.employee_id ?? employee_id),
+        name: raw.name as string | undefined,
+        role: raw.role as string | undefined,
+        message: String(
+          raw.message ?? "Not enough feedback on file to draft a fair review.",
+        ),
+        missing: Array.isArray(raw.missing) ? (raw.missing as string[]) : [],
+        evidence: (raw.evidence as Record<string, number>) ?? {},
+      });
+    }
+
     try {
       return Response.json(normalize(raw, employee_id));
     } catch {

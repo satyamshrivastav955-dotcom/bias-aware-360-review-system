@@ -42,7 +42,9 @@ for (const e of employees) {
 // unresolved in the demo.
 const dangling: string[] = [];
 for (const e of employees) {
-  const r = mockReport(e.employee_id)!;
+  // No report, nothing to resolve — emp_004 never gets one by design.
+  const r = mockReport(e.employee_id);
+  if (!r) continue;
   const m = buildSourceMap(e);
   for (const { key } of SECTIONS)
     for (const c of r[key])

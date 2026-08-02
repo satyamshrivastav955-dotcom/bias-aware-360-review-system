@@ -10,8 +10,13 @@ assert.equal(refs.size, benchmarkLabels.length, "benchmark point references must
 
 for (const employee of employees) {
   const report = mockReport(employee.employee_id);
-  assert.ok(report, `captured report missing for ${employee.employee_id}`);
   const labels = benchmarkLabels.filter((label) => label.employee_id === employee.employee_id);
+  // Employee C is intentionally refused by the evidence gate, so it has no
+  // captured report and should not enter the captured-report benchmark.
+  if (!report) {
+    assert.equal(labels.length, 0, `${employee.employee_id} has benchmark labels but no report`);
+    continue;
+  }
   assert.equal(labels.length, claims(report).length, `${employee.employee_id} must label every report claim`);
   assert.equal(predictionsFor(report, labels).length, labels.length);
 }
