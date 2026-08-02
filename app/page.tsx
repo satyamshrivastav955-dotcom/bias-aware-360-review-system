@@ -1,69 +1,27 @@
 import Link from "next/link";
+import { AppHeader } from "@/components/app-header";
 import { employees } from "@/data/employees";
 import { REVIEWER } from "@/lib/types";
 
 export default function Home() {
-  return (
-    <main className="mx-auto max-w-5xl px-6 py-16 md:py-24">
-      <header className="mb-16 border-b border-rule pb-10">
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-graphite">
-          Review cycle H1 2026 &middot; signed in as {REVIEWER}
-        </p>
-        <h1 className="mt-5 max-w-2xl font-display text-4xl leading-[1.1] font-semibold tracking-tight md:text-5xl">
-          Every claim carries its evidence.
-        </h1>
-        <p className="mt-5 max-w-xl text-graphite">
-          Draft a 360&deg; review from the feedback on file. Each statement is
-          cited back to a source, audited for bias, and held for your approval
-          before it becomes final.
-        </p>
-      </header>
-
-      <h2 className="mb-6 font-mono text-[11px] uppercase tracking-[0.18em] text-graphite">
-        {employees.length} reviews awaiting draft
-      </h2>
-
-      <ul className="grid gap-px border border-rule bg-rule sm:grid-cols-2 lg:grid-cols-3">
-        {employees.map((e) => (
-          <li key={e.employee_id}>
-            <Link
-              href={`/review/${e.employee_id}`}
-              className="group flex h-full flex-col bg-sheet p-7 transition-colors hover:bg-white"
-            >
-              <span className="font-mono text-[11px] tracking-wider text-graphite">
-                {e.employee_id}
-              </span>
-              <span className="mt-4 font-display text-2xl leading-tight font-semibold">
-                {e.name}
-              </span>
-              <span className="mt-1 text-[15px] text-graphite">{e.role}</span>
-
-              <dl className="mt-7 space-y-1.5 border-t border-rule pt-5 font-mono text-[11px] text-graphite">
-                <div className="flex justify-between">
-                  <dt>manager notes</dt>
-                  <dd>{e.manager_feedback.length}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt>peer notes</dt>
-                  <dd>{e.peer_feedback.length}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt>goals</dt>
-                  <dd>{e.goals.length}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt>projects</dt>
-                  <dd>{e.project_outcomes.length}</dd>
-                </div>
-              </dl>
-
-              <span className="mt-7 font-mono text-[11px] uppercase tracking-[0.14em] text-ink underline decoration-rule underline-offset-4 group-hover:decoration-ink">
-                Open review &rarr;
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
+  return <div className="dashboard-shell flex">
+    <aside className="sidebar sticky top-0 hidden h-screen shrink-0 flex-col p-4 md:flex">
+      <div className="px-3 pb-10 pt-2"><p className="font-display text-2xl font-semibold tracking-tight">Review Desk</p><p className="mt-1 font-mono text-[10px] uppercase tracking-[.16em] text-graphite">Senior editor</p></div>
+      <nav className="space-y-2 font-mono text-xs font-bold"><a className="nav-link-active flex gap-3 px-4 py-3" href="#overview">▦ Dashboard</a><a className="nav-link flex gap-3 px-4 py-3" href="#reviews">✎ Pending drafts</a><a className="nav-link flex gap-3 px-4 py-3" href="#activity">◫ Audit reports</a><a className="nav-link flex gap-3 px-4 py-3" href="#">◷ Cycle archive</a></nav>
+      <div className="mt-auto border-t border-rule pt-5"><a href="#reviews" className="block rounded-lg bg-ink px-4 py-3 text-center font-mono text-xs font-bold text-sheet">+ New review</a><p className="px-3 pt-6 font-mono text-[10px] uppercase tracking-[.13em] text-graphite">Help center</p></div>
+    </aside>
+    <main className="min-w-0 flex-1">
+      <AppHeader />
+      <div className="mx-auto max-w-7xl px-5 py-10 md:px-10 md:py-12" id="overview">
+        <section className="mb-11 flex flex-col justify-between gap-6 md:flex-row md:items-end"><div><p className="font-mono text-[10px] uppercase tracking-[.18em] text-graphite">Review cycle H1 2026 · {REVIEWER}</p><h1 className="mt-3 font-display text-4xl font-semibold tracking-tight md:text-5xl">Editorial overview</h1><p className="mt-3 max-w-2xl text-graphite">There are <strong className="text-[#b65607] dark:text-[#ffb36d]">{employees.length} reviews</strong> requiring evidence-based editorial attention this cycle.</p></div><div className="dash-card flex items-center gap-3 px-5 py-3"><span className="text-xl text-[#b65607]">▣</span><div><p className="font-mono text-[10px] uppercase tracking-wider text-graphite">Active cycle</p><p className="font-semibold">August 2026</p></div></div></section>
+        <section className="mb-12 grid gap-5 sm:grid-cols-2 xl:grid-cols-4"><Metric icon="▤" label="Total submissions" value="1,284" note="+12%" good/><Metric icon="◷" label="Pending audit" value="42" note="High priority"/><Metric icon="✓" label="Peer consistency" value="92.4%" note="Target 95%"/><Metric icon="◴" label="Avg. review time" value="11.5d" note="−2 days" good/></section>
+        <div className="grid gap-10 lg:grid-cols-3"><section className="space-y-6 lg:col-span-2" id="reviews"><div className="flex items-center justify-between"><h2 className="font-display text-2xl font-semibold">Recent review submissions</h2><span className="font-mono text-[11px] font-bold text-graphite">View all →</span></div><div className="grid gap-5 md:grid-cols-2">{employees.map((e,i)=><ReviewCard key={e.employee_id} employee={e} index={i}/>)}</div><div className="rounded-lg bg-ink p-7 text-sheet md:p-8"><p className="font-mono text-[10px] uppercase tracking-[.16em] text-[#ffb36d]">Institutional highlight</p><h2 className="mt-3 font-display text-3xl font-semibold">Annual bias integrity report</h2><p className="mt-3 max-w-xl text-[#c9d0d8]">A comprehensive audit of evidence quality, reviewer consistency, and potentially biased language is ready for editorial sign-off.</p><div className="mt-6 flex flex-wrap gap-3"><button className="rounded bg-[#fc8f34] px-5 py-2 font-mono text-xs font-bold text-[#3c200a]">Download report</button><button className="rounded border border-[#718091] px-5 py-2 font-mono text-xs font-bold">View summary</button></div></div></section><aside className="space-y-8" id="activity"><section><h2 className="mb-5 font-display text-xl font-semibold">Upcoming deadlines</h2><div className="space-y-3"><Deadline icon="!" title="H1 peer reviews" note="Due in 2 days · 14 pending" alert/><Deadline icon="□" title="Editorial board meeting" note="Aug 12, 2026 · 10:00 AM"/></div></section><section><h2 className="mb-5 font-display text-xl font-semibold">System log</h2><div className="dash-card divide-y divide-rule p-5"><Log title="Review draft generated" time="10m ago" text="Rohan Verma's evidence report is ready."/><Log title="Reviewer assigned" time="2h ago" text="Audit owner allocated to the H1 cycle."/><Log title="Integrity scan completed" time="1d ago" text="Language and source checks passed."/></div></section><section className="dash-card p-5"><p className="font-mono text-[10px] uppercase tracking-[.15em] text-graphite">Quick actions</p><div className="mt-4 grid grid-cols-2 gap-3"><button className="rounded border border-rule p-4 font-mono text-[11px] font-bold hover:bg-paper">⌕<br/>Find reviewer</button><button className="rounded border border-rule p-4 font-mono text-[11px] font-bold hover:bg-paper">✉<br/>Draft memo</button></div></section></aside></div>
+      </div>
     </main>
-  );
+  </div>;
 }
+
+function Metric({icon,label,value,note,good=false}:{icon:string;label:string;value:string;note:string;good?:boolean}) { return <div className="dash-card p-5 transition"><div className="flex items-start justify-between"><span className="grid h-9 w-9 place-items-center rounded bg-paper text-lg">{icon}</span><span className={`rounded px-2 py-1 font-mono text-[10px] font-bold ${good?"bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300":"bg-orange-100 text-[#a84d04] dark:bg-orange-950 dark:text-orange-200"}`}>{note}</span></div><p className="mt-5 font-mono text-[11px] text-graphite">{label}</p><p className="mt-1 font-display text-3xl font-semibold">{value}</p></div>; }
+function ReviewCard({employee,index}:{employee:(typeof employees)[number];index:number}) { const score=[4.8,4.2,4.5][index]??4.4; return <Link href={`/review/${employee.employee_id}`} className="dash-card block p-6 transition"><div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-full bg-[#dce4ec] font-display text-lg text-[#16202b]">{employee.name.slice(0,1)}</span><div><h3 className="font-display text-lg font-semibold">{employee.name}</h3><p className="text-sm italic text-graphite">{employee.role}</p></div></div><div className="mt-6"><div className="flex justify-between font-mono text-[11px]"><span className="text-graphite">Current score</span><strong>{score} / 5.0</strong></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-paper"><span className="block h-full bg-[#fc8f34]" style={{width:`${score*20}%`}}/></div><p className="mt-5 line-clamp-3 text-[15px] leading-6 text-graphite">“{employee.peer_feedback[0]?.text}”</p></div><div className="mt-6 flex items-center justify-between border-t border-rule pt-5"><span className="rounded-full bg-paper px-3 py-1 font-mono text-[9px] font-bold uppercase tracking-wider">{index===1?"Audit required":"Pending sign-off"}</span><span className="font-mono text-[11px] font-bold text-[#b65607] dark:text-[#ffb36d]">Review details →</span></div></Link>; }
+function Deadline({icon,title,note,alert=false}:{icon:string;title:string;note:string;alert?:boolean}) { return <div className="dash-card flex gap-3 p-4"><span className={`grid h-8 w-8 place-items-center rounded font-bold ${alert?"bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300":"bg-paper"}`}>{icon}</span><div><p className="font-semibold">{title}</p><p className="mt-1 font-mono text-[10px] text-graphite">{note}</p></div></div>; }
+function Log({title,time,text}:{title:string;time:string;text:string}) { return <div className="py-4 first:pt-0 last:pb-0"><div className="flex justify-between gap-2"><p className="font-semibold">{title}</p><span className="shrink-0 font-mono text-[9px] uppercase text-graphite">{time}</span></div><p className="mt-1 text-sm text-graphite">{text}</p></div>; }
