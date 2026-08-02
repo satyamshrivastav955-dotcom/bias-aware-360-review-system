@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 200" role="img" aria-labelledby="tg dg">
+  <title id="tg">Human approval gate</title>
+  <desc id="dg">Approval attempt hits the guard, returns 422, then passes after acknowledgment.</desc>
+  <defs>
+    <linearGradient id="bg3" x1="0" x2="1">
+      <stop offset="0" stop-color="#0c1220"/>
+      <stop offset="1" stop-color="#182135"/>
+    </linearGradient>
+    <style>
+      .lbl { font: 700 11px ui-monospace, Consolas, monospace; letter-spacing: .14em; }
+      .sm  { font: 500 13px ui-monospace, Consolas, monospace; }
+    </style>
+  </defs>
+  <rect width="1200" height="200" rx="24" fill="url(#bg3)"/>
+
+  <!-- Track -->
+  <path d="M90 100H1110" stroke="#334155" stroke-width="2"/>
+
+  <!-- Gate -->
+  <g>
+    <rect x="588" y="48" width="8" height="104" rx="4" fill="#ef4444">
+      <animate attributeName="fill" values="#ef4444;#ef4444;#22c55e;#22c55e;#ef4444" keyTimes="0;.55;.65;.95;1" dur="8s" repeatCount="indefinite"/>
+    </rect>
+    <text x="592" y="36" text-anchor="middle" class="lbl" fill="#94a3b8">APPROVAL GUARD</text>
+  </g>
+
+  <!-- Request dot: approaches, bounces at gate, then passes after ack -->
+  <circle r="9" cy="100" fill="#60a5fa">
+    <animate attributeName="cx" values="110;575;545;575;545;575;592;1090" keyTimes="0;.28;.34;.4;.46;.62;.68;1" dur="8s" repeatCount="indefinite"/>
+    <animate attributeName="fill" values="#60a5fa;#60a5fa;#f87171;#f87171;#22c55e;#22c55e" keyTimes="0;.28;.32;.6;.68;1" dur="8s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Status text swaps -->
+  <g text-anchor="middle" class="sm">
+    <text x="340" y="150" fill="#93c5fd">
+      POST /approve-review
+      <animate attributeName="opacity" values="1;1;0;0" keyTimes="0;.26;.3;1" dur="8s" repeatCount="indefinite"/>
+    </text>
+    <text x="340" y="150" fill="#fca5a5" opacity="0">
+      422 &#183; unresolved high-severity flags
+      <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;.3;.34;.55;.6;1" dur="8s" repeatCount="indefinite"/>
+    </text>
+    <text x="340" y="150" fill="#86efac" opacity="0">
+      flags acknowledged by reviewer
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;.58;.63;.95;1" dur="8s" repeatCount="indefinite"/>
+    </text>
+    <text x="860" y="150" fill="#86efac" opacity="0">
+      200 &#183; approved &#183; audit row written
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;.68;.74;.95;1" dur="8s" repeatCount="indefinite"/>
+    </text>
+  </g>
+</svg>
