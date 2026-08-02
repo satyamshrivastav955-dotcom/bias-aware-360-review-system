@@ -1,6 +1,6 @@
 import type { AuditEntry, Report } from "./types";
 
-// ponytail: no GET endpoint exists for a report or audit history, so the
+// known-limitation: no GET endpoint exists for a report or audit history, so the
 // browser holds the readable copy. The webhook still gets every write —
 // the backend remains the authoritative record.
 const key = (kind: string, id: string) => `br:${kind}:${id}`;

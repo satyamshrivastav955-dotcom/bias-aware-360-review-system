@@ -17,7 +17,8 @@ export default function GovernancePage() {
 
     <Block title="Where it goes">
       <p>Feedback is stored in Postgres and sent to Gemini as synthesis input, once per draft. The model receives the feedback text and returns a cited draft plus a bias audit; it is not trained on this data and nothing is retained between requests beyond the provider&rsquo;s own processing.</p>
-      <p>The n8n webhook URL is held server-side only, in <code>N8N_WEBHOOK_URL</code>. It is read exclusively inside route handlers, never prefixed with <code>NEXT_PUBLIC_</code>, and does not appear anywhere in the JavaScript shipped to the browser.</p>
+      <p>The n8n webhook URL is held server-side only, in <code>N8N_WEBHOOK_URL</code>. It is read exclusively inside route handlers, never prefixed with <code>NEXT_PUBLIC_</code>, and does not appear anywhere in the JavaScript shipped to the browser. Model API keys live only in n8n credentials, and <code>scripts/rotate-key.sh</code> exists to swap a compromised or exhausted key without touching the workflow.</p>
+      <p>All employee and reviewer names in this deployment are synthetic. In production, feedback author names would be pseudonymized before any text reaches the model — the audit needs to know two claims share one voice, not whose voice it is.</p>
     </Block>
 
     <Block title="Access scoping">

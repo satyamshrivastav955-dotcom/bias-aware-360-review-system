@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Instance | `https://suju1509.app.n8n.cloud` |
+| Instance | `https://{your-n8n-instance}.app.n8n.cloud` |
 | Workflow A | `A - generate-review` (id `LGGoOdiDTVdKrMon`) — **active** |
 | Workflow B | `B - approve-review` (id `mzrCmPUrDAmEidjO`) — **active** |
 | Webhook A | `POST /webhook/generate-review` — body `{"employee_id": "emp_001"}` |
@@ -18,10 +18,10 @@
 Webhook (CORS *, responseNode)
   → Postgres: fetch employee raw_data
   → Code: flatten sources + build synthesis prompt (whitelists valid source_ids)
-  → HTTP: Synthesis Agent    — Gemini 3 Flash Preview (as exported; model is configurable), responseSchema-constrained, temp 0.2
+  → HTTP: Synthesis Agent    — Gemini 3 Flash (preview), responseSchema-constrained, temp 0.2
   → Code: validate, strip hallucinated source_ids, drop uncited points
   → Code: build bias prompt (adds date distribution + point_ref indexing)
-  → HTTP: Bias Detection Agent — Gemini 3 Flash Preview (as exported; model is configurable), temp 0.1, 5 checks
+  → HTTP: Bias Detection Agent — Gemini 3 Flash (preview), temp 0.1, 5 checks
   → Code: merge flags onto points by point_ref
   → Postgres: insert report + audit_log row (single CTE)
   → Respond with full report JSON + report_id
@@ -96,7 +96,7 @@ Setup: run `db/schema.sql` then `db/seed.sql`.
 ## Test
 
 ```bash
-curl -X POST https://suju1509.app.n8n.cloud/webhook/generate-review \
+curl -X POST https://{your-n8n-instance}.app.n8n.cloud/webhook/generate-review \
   -H "Content-Type: application/json" \
   -d '{"employee_id": "emp_002"}'
 ```

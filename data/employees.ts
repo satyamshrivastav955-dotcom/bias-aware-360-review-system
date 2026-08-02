@@ -4,7 +4,7 @@ import emp001 from "./mock_employees/emp_001_priya_sharma.json";
 import emp002 from "./mock_employees/emp_002_arjun_mehta.json";
 import emp003 from "./mock_employees/emp_003_kavya_nair.json";
 
-// ponytail: these are the same files db/seed.sql loads into Postgres, imported
+// known-limitation: these are the same files db/seed.sql loads into Postgres, imported
 // rather than retyped. The citation drawer resolves source_ids locally, so this
 // bundle and the backend's copy must not drift — one file, not two.
 //
