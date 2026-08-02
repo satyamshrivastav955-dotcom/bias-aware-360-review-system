@@ -31,6 +31,14 @@ assert.match(mergeCode, /Bias audit incomplete/);
 assert.match(mergeCode, /duplicate point_ref/);
 assert.match(mergeCode, /stripped_uncited_count/);
 
+const generationGateCode = generateWorkflow.nodes.find(
+  (node: { name: string }) => node.name === "Build synthesis prompt",
+).parameters.jsCode as string;
+// Consent must be enforced before the workflow constructs a prompt or sends
+// any feedback to Gemini. The browser button is not an authorization boundary.
+assert.match(generationGateCode, /consent_not_granted/);
+assert.match(generationGateCode, /base\.consent\?\.granted/);
+
 const guardCode = approveWorkflow.nodes.find(
   (node: { name: string }) => node.name === "Guard \+ diff",
 )?.parameters.jsCode as string | undefined;
