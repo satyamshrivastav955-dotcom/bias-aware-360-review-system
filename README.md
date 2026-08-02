@@ -79,12 +79,28 @@ flowchart LR
 
 ## Screenshots
 
-<p align="center">
-  <img src="shots/pg-home.png" alt="Review Desk dashboard" width="49%" />
-  <img src="shots/4-report.png" alt="Evidence-cited performance review" width="49%" />
-  <img src="shots/6-drawer.png" alt="Source citation drawer" width="49%" />
-  <img src="shots/10-blocked.png" alt="Approval blocked by unresolved bias flags" width="49%" />
-</p>
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <a href="shots/pg-home.png"><img src="shots/pg-home.png" alt="Review Desk dashboard" height="260" /></a><br />
+      <sub><b>01 · Editorial overview</b><br />Cycle-wide evidence and bias metrics</sub>
+    </td>
+    <td align="center" width="50%">
+      <a href="shots/4-report.png"><img src="shots/4-report.png" alt="Evidence-cited performance review" height="260" /></a><br />
+      <sub><b>02 · Evidence-cited review</b><br />Claims, sections, and source coverage</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <a href="shots/6-drawer.png"><img src="shots/6-drawer.png" alt="Source citation drawer" height="260" /></a><br />
+      <sub><b>03 · Citation drawer</b><br />Trace a claim back to the original feedback</sub>
+    </td>
+    <td align="center" width="50%">
+      <a href="shots/10-blocked.png"><img src="shots/10-blocked.png" alt="Approval blocked by unresolved bias flags" height="260" /></a><br />
+      <sub><b>04 · Human approval gate</b><br />High-severity flags block finalization</sub>
+    </td>
+  </tr>
+</table>
 
 ## How the workflow protects fairness
 
