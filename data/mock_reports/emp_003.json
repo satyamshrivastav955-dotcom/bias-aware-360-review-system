@@ -1,0 +1,110 @@
+{
+  "report_id": "3f7a5da8-53ce-48d4-a9fa-2a95f3bd4591",
+  "employee_id": "emp_003",
+  "name": "Kavya Nair",
+  "role": "Data Analyst",
+  "strengths": [
+    {
+      "text": "Kavya is a great team player, always positive, always helpful, and willing to help out wherever needed.",
+      "source_ids": [
+        "self_1",
+        "manager_H_1"
+      ],
+      "flag": null
+    },
+    {
+      "text": "Kavya demonstrates good energy and a good attitude.",
+      "source_ids": [
+        "manager_H_2"
+      ],
+      "flag": {
+        "type": "single_source_bias",
+        "reasoning": "The claim 'Kavya demonstrates good energy and a good attitude' is a subjective character judgment from a single source (manager_H_2) and lacks concrete examples or incidents to support it.",
+        "severity": "medium"
+      }
+    },
+    {
+      "text": "Kavya is very responsive and her reports are always delivered on time.",
+      "source_ids": [
+        "peer_I_1"
+      ],
+      "flag": null
+    },
+    {
+      "text": "Kavya was thanked for being helpful and flexible during the Q2 crunch.",
+      "source_ids": [
+        "note_2"
+      ],
+      "flag": null
+    }
+  ],
+  "growth_areas": [
+    {
+      "text": "Kavya is in progress on the goal to develop SQL and dbt skills, evidenced by attending internal dbt workshops.",
+      "source_ids": [
+        "goal_2"
+      ],
+      "flag": null
+    },
+    {
+      "text": "Kavya has discussed an interest in moving toward analytics engineering, but no concrete plan has been set yet.",
+      "source_ids": [
+        "note_1"
+      ],
+      "flag": null
+    }
+  ],
+  "impact_highlights": [
+    {
+      "text": "Kavya built the weekly churn dashboard that the exec team now uses every Monday.",
+      "source_ids": [
+        "peer_J_1",
+        "project_1"
+      ],
+      "flag": null
+    },
+    {
+      "text": "Kavya automated the manual CSV export process, which saves approximately 3 hours a week of data-engineering time.",
+      "source_ids": [
+        "peer_J_1",
+        "project_1"
+      ],
+      "flag": null
+    },
+    {
+      "text": "Kavya delivered quarterly growth reports, which received generally positive feedback.",
+      "source_ids": [
+        "project_2"
+      ],
+      "flag": null
+    }
+  ],
+  "goal_progress": [
+    {
+      "text": "Kavya completed the goal to improve reporting for the growth team, with growth team dashboards delivered.",
+      "source_ids": [
+        "goal_1"
+      ],
+      "flag": null
+    },
+    {
+      "text": "Kavya is in progress on the goal to develop SQL and dbt skills, attending internal dbt workshops.",
+      "source_ids": [
+        "goal_2"
+      ],
+      "flag": null
+    },
+    {
+      "text": "Kavya delivered quarterly growth reports, which aligns with the goal of improving reporting for the growth team.",
+      "source_ids": [
+        "project_2",
+        "goal_1"
+      ],
+      "flag": null
+    }
+  ],
+  "overall_bias_summary": "The review appears generally fair, with most points well-supported by multiple sources or objective records. There is one instance of single-source bias where a positive subjective character judgment lacks concrete examples, which could be improved for better clarity. The review incorporates a balanced mix of manager, peer, self-assessment, and objective goal/project data.",
+  "status": "pending_approval",
+  "reviewer": null,
+  "approved_at": null
+}

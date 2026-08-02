@@ -1,8 +1,9 @@
 import type { Employee, Source } from "./types";
 
-// ponytail: meeting_notes and self_assessment have no ids in schema v1.0.
-// Convention pinned here — backend must emit the same: `self_assessment`
-// and `meeting_note_{1-based index}`.
+// meeting_notes and self_assessment carry no ids in the employee file, so the
+// backend synthesises them in the "Build synthesis prompt" node and whitelists
+// the result. These two ids mirror that node exactly — change them together or
+// every self/meeting citation renders as unresolved.
 export function buildSourceMap(e: Employee): Record<string, Source> {
   const m: Record<string, Source> = {};
   const put = (s: Source) => {
@@ -10,7 +11,7 @@ export function buildSourceMap(e: Employee): Record<string, Source> {
   };
 
   put({
-    id: "self_assessment",
+    id: "self_1",
     kind: "self",
     reviewer: e.name,
     text: e.self_assessment,
@@ -55,7 +56,7 @@ export function buildSourceMap(e: Employee): Record<string, Source> {
 
   e.meeting_notes.forEach((t, i) =>
     put({
-      id: `meeting_note_${i + 1}`,
+      id: `note_${i + 1}`,
       kind: "meeting",
       reviewer: null,
       text: t,

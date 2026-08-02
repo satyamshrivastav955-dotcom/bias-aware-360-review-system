@@ -11,16 +11,20 @@ export function unwrapN8n(json: unknown): Record<string, unknown> | null {
   return obj;
 }
 
-// n8n returns HTML on 5xx, which makes res.json() throw.
+// n8n returns HTML on 5xx, which makes res.json() throw. It also answers 200
+// with a zero-byte body when a node fails downstream of the webhook — seen live
+// when Gemini rate-limits. Returning null there lets callers report "the
+// service returned nothing" instead of misfiling it as an unreachable host.
 export async function parseBody(res: Response): Promise<unknown> {
   const type = res.headers.get("content-type") ?? "";
+  const text = await res.text();
+  if (!text.trim()) return null;
   if (!type.includes("json")) {
-    const text = await res.text();
     throw new Error(
       `n8n returned ${res.status} ${type || "unknown type"}: ${text.slice(0, 200)}`,
     );
   }
-  return res.json();
+  return JSON.parse(text);
 }
 
 export const webhookBase = () =>

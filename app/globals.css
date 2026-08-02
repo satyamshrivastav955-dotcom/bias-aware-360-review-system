@@ -1,22 +1,21 @@
 @import "tailwindcss";
 
 @theme {
-  --color-paper: #e9eaec;
-  --color-sheet: #fbfbfc;
-  --color-ink: #16202b;
-  --color-graphite: #6b7785;
-  --color-rule: #c9cdd3;
-  --color-pen: #d6303a;
-  --color-amber: #f2c14e;
+  --color-paper: #ffffff;
+  --color-sheet: #f8fafc;
+  --color-ink: #0f172a;
+  --color-graphite: #64748b;
+  --color-rule: #e2e8f0;
 
-  --font-display: var(--font-fraunces), Georgia, serif;
-  --font-body: var(--font-newsreader), Georgia, serif;
-  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+  --font-display: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-body: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 html {
-  background: var(--color-paper);
-  color: var(--color-ink);
+  background-color: #f8fafc;
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
 }
 
 html.dark {
@@ -31,93 +30,51 @@ html.dark {
 
 body {
   font-family: var(--font-body);
-  font-size: 17px;
+  font-size: 15px;
   line-height: 1.6;
 }
 
 ::selection {
-  background: var(--color-ink);
-  color: var(--color-sheet);
+  background: #0f172a;
+  color: #ffffff;
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-ink);
+  outline: 2px solid #2563eb;
   outline-offset: 2px;
 }
 
-/* The signature element: a marker wash behind flagged claim text.
-   box-decoration-break keeps it as separate bands per line instead of
-   one stretched box across a wrapped claim. */
-.wash {
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
-  padding: 0.1em 0.15em;
-  margin: 0 -0.15em;
-  border-radius: 1px;
-}
 .wash-high {
-  background: rgba(214, 48, 58, 0.18);
-  box-shadow: inset 0 -1px 0 rgba(214, 48, 58, 0.45);
+  background-color: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
 }
+
 .wash-medium {
-  background: rgba(242, 193, 78, 0.32);
-  box-shadow: inset 0 -1px 0 rgba(242, 193, 78, 0.7);
+  background-color: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
 }
+
 .wash-low {
-  background: rgba(107, 119, 133, 0.16);
-  box-shadow: inset 0 -1px 0 rgba(107, 119, 133, 0.35);
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #334155;
 }
 
-/* Manuscript grid: claim | gutter | margin apparatus.
-   The connector rule is drawn across the gutter by the margin cell. */
-.claim-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.75rem 0;
-  align-items: start;
-}
-.margin-note {
-  position: relative;
-}
-
-@media (min-width: 900px) {
-  .claim-grid {
-    grid-template-columns: minmax(0, 1fr) 40px 260px;
-  }
-  .margin-note {
-    grid-column: 3;
-  }
-  .margin-note::before {
-    content: "";
-    position: absolute;
-    top: 0.7em;
-    left: -40px;
-    width: 40px;
-    border-top: 1px solid var(--color-rule);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
-@keyframes rise {
+@keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
-    transform: none;
+    transform: translateY(0);
   }
 }
-.rise {
-  animation: rise 0.4s ease-out both;
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
 }
 
 .dashboard-shell { min-height: 100vh; background: var(--color-paper); }
@@ -174,8 +131,7 @@ body {
   .no-print {
     display: none !important;
   }
-  html,
-  body {
-    background: #fff;
+  html, body {
+    background: #ffffff;
   }
 }

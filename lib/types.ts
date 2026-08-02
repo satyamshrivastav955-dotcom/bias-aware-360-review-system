@@ -1,10 +1,15 @@
-// Schema v1.0 — frozen. Any change requires a team sync.
+// Schema v1.0 + the drift observed against the live n8n instance on 2026-08-01.
 
+// The bias agent is a prompt, not an enum — it can emit a type nobody wrote
+// down. `(string & {})` keeps autocomplete for the known five while letting an
+// unknown type through to FLAG_LABEL, which titlecases it rather than blanking.
 export type FlagType =
   | "unsupported_claim"
   | "recency_bias"
   | "single_source_bias"
-  | "vague_language";
+  | "vague_language"
+  | "contradiction"
+  | (string & {});
 
 export type Severity = "low" | "medium" | "high";
 
@@ -31,8 +36,28 @@ export type Report = {
   status: ReportStatus;
   reviewer: string | null;
   approved_at: string | null;
-  created_at: string;
+  created_at: string; // live n8n omits this; the route stamps it on arrival
+  name?: string;
+  role?: string;
 };
+
+// A high-severity flag blocks approval until it is amended or acknowledged.
+// point_ref is the backend's addressing scheme: `growth_areas[1]`.
+export type UnresolvedFlag = {
+  point_ref: string;
+  type: FlagType;
+  text: string;
+  reasoning: string;
+};
+
+export type ApproveBlocked = {
+  error: "unresolved_high_severity_flags";
+  detail: string;
+  unresolved_count: number;
+  unresolved: UnresolvedFlag[];
+};
+
+export const pointRef = (section: SectionKey, i: number) => `${section}[${i}]`;
 
 export type Feedback = {
   id: string;
@@ -77,7 +102,11 @@ export type Source = {
   date: string | null; // raw string — never passed to new Date()
 };
 
-export type AuditAction = "generated" | "edit" | "approve" | "reject";
+export type AuditAction =
+  | "generated"
+  | "acknowledged"
+  | "approved"
+  | "rejected";
 
 export type AuditEntry = {
   ts: string; // ISO, rendered raw in mono
@@ -85,6 +114,22 @@ export type AuditEntry = {
   action: AuditAction;
   report_id: string;
   summary: string;
+};
+
+// The server's own record, which carries the field-level diff the local copy
+// cannot reconstruct. Shape from GET /webhook/audit-trail.
+export type ServerAuditEntry = {
+  id: string;
+  report_id: string;
+  employee_id: string;
+  actor: string;
+  action: string;
+  at: string;
+  report_status: ReportStatus;
+  diff: {
+    edits?: { point_ref: string; before: string; after: string }[];
+    acknowledged_refs?: string[];
+  } | null;
 };
 
 export type ApproveResponse = {
@@ -107,11 +152,17 @@ export const SECTIONS: { key: SectionKey; title: string; note: string }[] = [
   { key: "goal_progress", title: "Goals", note: "Against stated commitments" },
 ];
 
-export const FLAG_LABEL: Record<FlagType, string> = {
+const FLAG_LABELS: Record<string, string> = {
   unsupported_claim: "Unsupported claim",
   recency_bias: "Recency bias",
   single_source_bias: "Single-source bias",
   vague_language: "Vague language",
+  contradiction: "Contradicted by evidence",
 };
+
+// An unlisted type still names itself legibly instead of rendering "undefined".
+export const flagLabel = (t: FlagType) =>
+  FLAG_LABELS[t] ??
+  t.replace(/_/g, " ").replace(/^./, (c: string) => c.toUpperCase());
 
 export const REVIEWER = "Manager";
