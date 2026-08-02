@@ -233,7 +233,8 @@ function SubmitPageInner() {
                   </label>
                   <input
                     id="feedback-date"
-                    type="month"
+                    type="text"
+                    placeholder="YYYY-MM (e.g. 2026-08)"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                     className={`w-full rounded-lg border px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-blue-500 ${
