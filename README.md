@@ -1,78 +1,165 @@
-TEAM NAME: CLAUDE'S PLAN
+<div align="center">
 
-# bias-aware-360-review-system
+# Bias-Aware 360° Review Desk
 
-Scattered 360° feedback in, an evidence-cited performance review out — every claim traceable to the sentence it came from, every draft audited for bias before a human can approve it.
+### Evidence-cited performance reviews with a bias audit and an enforced human gate.
 
-Built for Innova Hack Chapter-1 (Agentic AI track). Next.js App Router on Vercel; n8n Cloud + Gemini for the agent pipeline. No custom backend server.
+[![Live demo](https://img.shields.io/badge/Live_demo-Open_app-2563eb?style=for-the-badge)](https://bias-aware-360-review-system.vercel.app/)
+[![Next.js](https://img.shields.io/badge/Next.js-15-111827?logo=next.js&logoColor=white)](https://nextjs.org/)
+[![n8n](https://img.shields.io/badge/Orchestrated_with-n8n-ff6d5a?logo=n8n&logoColor=white)](https://n8n.io/)
+[![Supabase](https://img.shields.io/badge/Data-Supabase-3ecf8e?logo=supabase&logoColor=white)](https://supabase.com/)
 
-## The flow
+**[Launch the demo →](https://bias-aware-360-review-system.vercel.app/)** · **[Explore the code →](https://github.com/satyamshrivastav955-dotcom/bias-aware-360-review-system)**
 
-1. **Collect** — self-assessment, manager notes and peer feedback for one employee, each entry addressable by a source id (`peer_1`, `mgr_2`, …).
-2. **Draft** — an agent synthesises strengths, growth areas and achievements. Every claim carries `source_ids`; the UI resolves each one back to the original text in a drawer.
-3. **Audit** — a second pass flags claims for single-source bias, contradiction, vague language and unsupported praise, each with a severity and written reasoning.
-4. **Decide** — the reviewer edits any claim, acknowledges the flags they disagree with, then approves or rejects. Approval is refused while a high-severity flag is neither edited nor acknowledged.
-5. **Record** — actor, action, timestamp and a field-level diff of every edit land in the audit trail.
+</div>
 
-## Evidence grounding
+<p align="center">
+  <img src="docs/review-pipeline.svg" alt="Animated review pipeline: feedback, synthesis, bias audit, human gate" width="100%" />
+</p>
 
-The review page states the grounding claim as a number you can check: *"13 of 13 sources on file cited · 0 claims without a citation."* A claim citing an id that resolves to nothing is counted and named, not hidden. Computed in `lib/stats.ts`.
+> Built for **INNOVA HACK Chapter-1 · Agentic AI · PS-2**.
 
-## Bias detection, twice
+## The idea
 
-The model's audit is one signal. Because a prompt is not something a judge can verify — and because a model that is down produces no flags at all — the review page also runs a **deterministic pre-check** (`lib/bias-precheck.ts`) over the raw input file, before anything is generated:
+Performance feedback is usually scattered across self-assessments, manager notes, peer comments, goals, and project outcomes. This system turns that mess into a review a manager can inspect before it reaches an employee.
 
-- **Source concentration** — the share of feedback coming from one person.
-- **Observation window** — how many distinct months the feedback spans, and how much of it lands in the newest one.
-- **Voice balance** — manager / peer / self entry counts, and how many distinct peers.
+**Feedback in → cited review → independent bias audit → human decision → accountable audit trail.**
 
-Three signals, plain arithmetic, no model. Each renders as a sentence with its numbers and the source ids behind it, never as a verdict. The thresholds are heuristics and are named as such in the code so you can disagree with them. On the sample data they raise 3 of 3 for `emp_002` (75% of the feedback from one manager, two months, one peer voice) and 0 of 3 for the other two — corroborating the model's `single_source_bias` flag from an independent direction.
+The system is deliberately more than a text generator:
 
-## Governance & privacy
+- Every generated claim carries source IDs that resolve to the original feedback.
+- A second agent audits the draft for unsupported claims, recency bias, single-source bias, vague language, and contradictions.
+- High-severity flags block approval until a reviewer edits or explicitly acknowledges them.
+- Thin evidence is refused before model generation; the system says “not enough data” instead of inventing a review.
 
-Stated as what the code does, not as intent.
+## Try the demo
 
-- **The webhook is server-only.** `N8N_WEBHOOK_URL`, never `NEXT_PUBLIC_`. All three route handlers under `app/api/` proxy it; it does not appear in the client bundle.
-- **The audit trail is scoped per employee, server-side.** `/api/audit-trail` requires `employee_id` and filters before responding, because the upstream webhook filters only by `report_id`. An unscoped request returns an empty set, not everything. Guarded by a test — the leak was invisible in the UI.
-- **Feedback goes to the model as synthesis input only.** Nothing is used for training or retained by this app outside the n8n workflow's own store.
-- **Every decision is attributable.** Actor, action, timestamp and per-field before/after are recorded and rendered back on the audit page.
+| Scenario | What to open | What to look for |
+| --- | --- | --- |
+| Clean review | [Priya Sharma](https://bias-aware-360-review-system.vercel.app/review/emp_001) | Grounded claims with no bias flags |
+| Main demo | [Arjun Mehta](https://bias-aware-360-review-system.vercel.app/review/emp_002) | “Misses deadlines” contradicted by objective delivery evidence |
+| Graceful failure | [Riya Kapoor](https://bias-aware-360-review-system.vercel.app/review/emp_004) | Insufficient evidence response; no report is fabricated |
+| Governance | [Audit reports](https://bias-aware-360-review-system.vercel.app/audit-reports) | Findings, status, and reviewer traceability |
+| Evaluation | [Model evaluation](https://bias-aware-360-review-system.vercel.app/evaluation) | Precision, recall, F1, citation resolution, and disagreements |
 
-Limits, stated rather than hidden:
+### 90-second judge path
 
-- **No authentication.** The reviewer identity is a fixed mock value (`REVIEWER` in `lib/types.ts`). Anyone who can reach the app can approve anything. Deliberate scope decision, not an oversight.
-- **No retention or deletion policy**, and no consent capture from the people whose feedback is stored.
-- **The bias audit is not re-run after an edit.** An amended claim is tagged "Amended after this audit — not re-checked" rather than silently re-blessed.
-- **The audit is advisory.** A reviewer can acknowledge every flag and approve.
+1. Open Arjun’s review and click **Generate AI Review Draft**.
+2. Open a citation chip and inspect the original source text.
+3. Find the contradiction flag: the manager claims missed deadlines while project outcomes show on-time launches.
+4. Click **Approve**. The system blocks approval with a 422 response.
+5. Edit or acknowledge the flagged claim, approve again, and open the audit trail.
+6. Open Riya’s page to show the evidence gate refusing to draft from one manager note.
 
-`/governance` says the same thing in the product itself.
+## Architecture
 
-## Running it
+```mermaid
+flowchart LR
+  A[Next.js review desk] -->|server-side proxy| B[n8n Cloud]
+  B --> C[Fetch employee evidence]
+  C --> D{Evidence sufficient?}
+  D -->|No| E[Return insufficient_evidence]
+  D -->|Yes| F[Gemini synthesis agent]
+  F --> G[Validate source IDs]
+  G --> H[Gemini bias-audit agent]
+  H --> I[Supabase reports + audit_log]
+  I --> J[Human edit / acknowledge / approve]
+  J --> K[Final report + field-level audit diff]
+```
+
+### Stack
+
+| Layer | Technology | Responsibility |
+| --- | --- | --- |
+| Frontend | Next.js App Router, React, Tailwind | Review desk, citations, flags, approval UX |
+| Orchestration | n8n Cloud | Webhooks, database operations, multi-agent flow |
+| Models | Gemini | Synthesis and independent bias-audit passes |
+| Database | Supabase Postgres | Employees, reports, final decisions, audit log |
+| Hosting | Vercel + n8n Cloud | Public app and server-side workflow endpoints |
+
+## Screenshots
+
+<p align="center">
+  <img src="shots/pg-home.png" alt="Review Desk dashboard" width="49%" />
+  <img src="shots/4-report.png" alt="Evidence-cited performance review" width="49%" />
+  <img src="shots/6-drawer.png" alt="Source citation drawer" width="49%" />
+  <img src="shots/10-blocked.png" alt="Approval blocked by unresolved bias flags" width="49%" />
+</p>
+
+## How the workflow protects fairness
+
+### 1. Evidence grounding
+
+The synthesis prompt receives a flattened source list with a valid-ID whitelist. A validator strips hallucinated source IDs and drops uncited claims. The UI reports citation coverage rather than hiding failures.
+
+### 2. Two independent bias signals
+
+The Gemini audit judges the wording of the draft. A deterministic pre-check independently measures source concentration, observation window, and voice balance from the raw file. The pre-check is explicitly a heuristic—not a fairness verdict.
+
+### 3. Evidence gate
+
+Before either model call, Workflow A requires at least two reviewer voices and at least one objective record: a goal or project outcome. Otherwise it returns `insufficient_evidence`, performs no model generation, and creates no report.
+
+### 4. Human approval is enforced
+
+Workflow B rejects approval while high-severity flags remain unedited and unacknowledged. Edits are compared field-by-field and stored with actor, action, timestamp, and acknowledged references.
+
+## Repository map
+
+```text
+app/                         Next.js pages and server-side API proxies
+components/                  Reusable review UI
+data/mock_employees/         Seed fixtures, including the thin-evidence case
+data/mock_reports/           Captured offline reports
+db/                          Supabase schema and seed data
+lib/                         Source mapping, evidence stats, schemas, evaluation
+n8n-workflows/               Importable generate and approval workflows
+prompts/                     Synthesis and bias-audit prompts
+scripts/                     Workflow migration and pipeline helpers
+docs/review-pipeline.svg     Animated README architecture visual
+```
+
+## Run locally
 
 ```bash
 npm install
-cp .env.example .env.local   # leave N8N_WEBHOOK_URL empty to run on captured data
+cp .env.example .env.local
 npm run dev
 ```
 
-With no webhook configured the app runs on the reports in `data/mock_reports/` — real responses captured from the live backend, not hand-written fixtures — so the full journey is demonstrable offline.
+Leave `N8N_WEBHOOK_URL` empty to use captured reports offline. Set it to the n8n webhook base URL to exercise the live backend through the Next.js proxy. The webhook URL is intentionally server-only and is never exposed as a `NEXT_PUBLIC_` variable.
 
-## Agentic AI evaluation
-
-`/evaluation` compares captured model outputs with manually adjudicated claim labels in `data/evaluation/benchmark.ts`. It reports flag precision, recall, F1, per-category performance, audit completeness, citation resolution, and the exact human/model disagreements. All benchmark records are synthetic. Version 1 contains 39 claims across three employees and is presented as a regression benchmark, not evidence of production fairness.
-
-```bash
-npm run evaluation:report
-npm run test:evaluation
-```
-
-## Tests
-
-The repository uses focused `node:assert` scripts plus shared package commands:
+## Verify the project
 
 ```bash
 npm run typecheck
 npm test
+npm run build
 npm run verify
 ```
 
-`npm test` covers source mapping, evidence statistics, n8n response handling and employee scoping, runtime schemas, cross-artifact contracts, and the captured evaluation benchmark.
+The test suite covers source resolution, evidence statistics, n8n response shapes, runtime schemas, cross-artifact contracts, the insufficient-evidence case, and the captured-report evaluation benchmark.
+
+To inspect the benchmark:
+
+```bash
+npm run evaluation:report
+```
+
+## Honest limitations
+
+- There is no authentication; the reviewer identity is a fixed demo value.
+- Feedback is synthetic demo data, not production employee data.
+- The bias audit is advisory; a reviewer can acknowledge a flag and proceed.
+- An amended claim is marked as edited after the original audit; it is not silently re-audited.
+- Retention, deletion, consent, and production access controls are outside this hackathon scope.
+
+## Credits
+
+Built by **Team Claude’s Plan** for INNOVA HACK Chapter-1.
+
+<div align="center">
+
+**[Open the live demo](https://bias-aware-360-review-system.vercel.app/) · [Read the source](https://github.com/satyamshrivastav955-dotcom/bias-aware-360-review-system)**
+
+</div>
