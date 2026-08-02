@@ -9,6 +9,7 @@ const links = [
   { href: "/", label: "Overview" },
   { href: "/drafts", label: "Drafts" },
   { href: "/submissions", label: "Submissions" },
+  { href: "/submit", label: "Submit Feedback" },
   { href: "/reviewers", label: "Reviewers" },
   { href: "/audit-reports", label: "Audit reports" },
   { href: "/evaluation", label: "Evaluation" },

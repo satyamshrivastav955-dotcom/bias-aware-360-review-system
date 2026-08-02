@@ -1,6 +1,7 @@
 import { mockInsufficientEvidence, mockReport } from "@/data/mock-report";
 import { parseBody, unwrapN8n, webhookBase } from "@/lib/n8n";
-import { generateRequestSchema, reportSchema } from "@/lib/schemas";
+import { reportSchema } from "@/lib/schemas";
+import { z } from "zod";
 import type { Claim, Report, SectionKey } from "@/lib/types";
 import { SECTIONS } from "@/lib/types";
 
@@ -43,6 +44,24 @@ function normalize(raw: Record<string, unknown>, employeeId: string): Report {
   return report;
 }
 
+// Extends the base schema with optional manual-input fields passed from the
+// review page when the user has submitted extra feedback via /submit.
+const generateRequestExtended = z.object({
+  employee_id: z.string().trim().min(1),
+  extra_feedback: z
+    .array(
+      z.object({
+        id: z.string(),
+        reviewer: z.string(),
+        text: z.string(),
+        date: z.string(),
+        kind: z.enum(["manager", "peer"]).optional(),
+      }),
+    )
+    .optional(),
+  self_assessment: z.string().optional(),
+});
+
 export async function POST(req: Request) {
   let input: unknown;
   try {
@@ -51,11 +70,11 @@ export async function POST(req: Request) {
     return Response.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
 
-  const parsed = generateRequestSchema.safeParse(input);
+  const parsed = generateRequestExtended.safeParse(input);
   if (!parsed.success) {
     return Response.json({ error: "employee_id is required" }, { status: 400 });
   }
-  const { employee_id } = parsed.data;
+  const { employee_id, extra_feedback, self_assessment } = parsed.data;
 
   const base = webhookBase();
   const forceMock =
@@ -78,7 +97,11 @@ export async function POST(req: Request) {
     const res = await fetch(`${base}/generate-review`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ employee_id }),
+      body: JSON.stringify({
+        employee_id,
+        ...(extra_feedback?.length ? { extra_feedback } : {}),
+        ...(self_assessment ? { self_assessment } : {}),
+      }),
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
 

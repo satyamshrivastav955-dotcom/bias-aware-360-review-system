@@ -11,8 +11,10 @@ import { evidenceLedger, flagCounts, totalFlags } from "@/lib/stats";
 import {
   appendAudit,
   clearEmployee,
+  loadExtraFeedback,
   loadOriginal,
   loadReport,
+  loadSelfAssessment,
   saveOriginal,
   saveReport,
 } from "@/lib/store";
@@ -26,6 +28,7 @@ import {
   type Claim,
   type EditedFields,
   type Employee,
+  type Flag,
   type InsufficientEvidence,
   type Report,
   type SectionKey,
@@ -59,6 +62,7 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
   );
   const [flaggedOnly, setFlaggedOnly] = useState(false);
   const [preview, setPreview] = useState(false);
+  const [editingSummary, setEditingSummary] = useState(false);
 
   const id = employee.employee_id;
   const sourceMap = useMemo(() => buildSourceMap(employee), [employee]);
@@ -100,10 +104,16 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
     const started = Date.now();
 
     try {
+      const extraFeedback = loadExtraFeedback(id);
+      const selfAssessment = loadSelfAssessment(id);
       const res = await fetch("/api/generate-review", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ employee_id: id }),
+        body: JSON.stringify({
+          employee_id: id,
+          ...(extraFeedback.length ? { extra_feedback: extraFeedback } : {}),
+          ...(selfAssessment ? { self_assessment: selfAssessment } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not draft the review.");
@@ -159,8 +169,50 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
         ...prev,
         [key]: prev[key].map((c, i) => (i === index ? { ...c, text } : c)),
       };
-      // The backend has no "save draft" action, so edits persist locally as
-      // they are typed. Without this a refresh would silently discard them.
+      saveReport(id, next);
+      return next;
+    });
+  }
+
+  function updateFlag(key: SectionKey, index: number, flag: Flag | null) {
+    setReport((prev) => {
+      if (!prev) return prev;
+      const next = {
+        ...prev,
+        [key]: prev[key].map((c, i) => (i === index ? { ...c, flag } : c)),
+      };
+      saveReport(id, next);
+      return next;
+    });
+  }
+
+  function editBiasSummary(text: string) {
+    setReport((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, overall_bias_summary: text };
+      saveReport(id, next);
+      return next;
+    });
+  }
+
+  function deleteClaim(key: SectionKey, index: number) {
+    setReport((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, [key]: prev[key].filter((_, i) => i !== index) };
+      saveReport(id, next);
+      return next;
+    });
+  }
+
+  function addClaim(key: SectionKey) {
+    setReport((prev) => {
+      if (!prev) return prev;
+      const newClaim: Claim = {
+        text: "",
+        source_ids: [],
+        flag: null,
+      };
+      const next = { ...prev, [key]: [...prev[key], newClaim] };
       saveReport(id, next);
       return next;
     });
@@ -548,20 +600,18 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
               </div>
             )}
             {SECTIONS.map(({ key, title, note }) => (
-              <section key={key} className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
-                <div className="border-b border-slate-100 pb-4 mb-4 flex items-center justify-between">
-                  <h2 className="text-lg font-bold text-slate-900">{title}</h2>
-                  <span className="text-xs text-slate-400 font-medium">{note}</span>
+              <section key={key} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#20272e] p-6 shadow-xs">
+                <div className="border-b border-slate-100 dark:border-slate-700 pb-4 mb-4 flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{title}</h2>
+                  <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">{note}</span>
                 </div>
 
-                {report[key].length === 0 ? (
+                {report[key].length === 0 && !flaggedOnly ? (
                   <p className="text-xs text-slate-400 italic">No points drafted for this section.</p>
                 ) : visible(report[key]).length === 0 ? (
                   <p className="text-xs text-slate-400 italic">No flagged claims in this section.</p>
                 ) : (
                   <div className="space-y-4">
-                    {/* Index into the unfiltered section — point_ref and edits
-                        address the real position, not the visible one. */}
                     {visible(report[key]).map(({ claim, i }) => (
                       <ClaimRow
                         key={i}
@@ -571,10 +621,25 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
                         edited={claim.text !== original?.[key][i]?.text}
                         acknowledged={acked.includes(pointRef(key, i))}
                         onChange={(text) => editClaim(key, i, text)}
+                        onDelete={canEdit ? () => deleteClaim(key, i) : undefined}
+                        onFlagChange={canEdit ? (flag) => updateFlag(key, i, flag) : undefined}
                         onCite={setDrawer}
                       />
                     ))}
                   </div>
+                )}
+
+                {canEdit && !flaggedOnly && (
+                  <button
+                    type="button"
+                    onClick={() => addClaim(key)}
+                    className="no-print mt-4 flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 px-4 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors w-full justify-center"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add claim
+                  </button>
                 )}
               </section>
             ))}
@@ -617,9 +682,37 @@ export default function ReviewClient({ employee }: { employee: Employee }) {
                 )}
               </div>
 
-              <p className="mt-4 text-xs leading-relaxed text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                {report.overall_bias_summary}
-              </p>
+              {/* Overall bias summary — editable by human reviewer */}
+              <div className="mt-4 relative group">
+                {editingSummary ? (
+                  <textarea
+                    autoFocus
+                    rows={5}
+                    value={report.overall_bias_summary}
+                    onChange={(e) => editBiasSummary(e.target.value)}
+                    onBlur={() => setEditingSummary(false)}
+                    className="w-full resize-none rounded-lg border border-blue-500 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 p-3 text-xs leading-relaxed text-slate-900 focus:outline-none"
+                  />
+                ) : (
+                  <>
+                    <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                      {report.overall_bias_summary || <span className="italic text-slate-400">No summary provided.</span>}
+                    </p>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingSummary(true)}
+                        className="no-print mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 0l.172.172a2 2 0 010 2.828L12 16H9v-3z" />
+                        </svg>
+                        Edit bias summary
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
 
               {ledger && (
                 <p className="mt-3 font-mono text-[10px] leading-relaxed text-slate-500">
