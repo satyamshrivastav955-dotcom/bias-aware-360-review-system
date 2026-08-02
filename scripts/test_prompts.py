@@ -91,9 +91,9 @@ def main():
         assert field in synthesis, f"Synthesis missing field: {field}"
     # citation validation: every source_id must exist in input
     src = json.loads(employee_data)
-    valid_ids = {"self_assessment"} \
+    valid_ids = {"self_1"} \
         | {f["id"] for k in ["manager_feedback", "peer_feedback", "goals", "project_outcomes"] for f in src.get(k, [])} \
-        | {f"meeting_note_{i+1}" for i in range(len(src.get("meeting_notes", [])))}
+        | {f"note_{i+1}" for i in range(len(src.get("meeting_notes", [])))}
     bad = [sid for sec in synthesis.values() for p in sec for sid in p.get("source_ids", []) if sid not in valid_ids]
     if bad:
         print(f"  WARNING: hallucinated source_ids: {bad}")

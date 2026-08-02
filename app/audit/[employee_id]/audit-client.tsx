@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { AppHeader } from "@/components/app-header";
 import { loadAudit } from "@/lib/store";
 import type {
   AuditEntry,
@@ -86,7 +87,11 @@ export default function AuditClient({ employee }: { employee: Employee }) {
   }, [id]);
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-8">
+    <div className="app-shell">
+      <AppHeader />
+      {/* Utilities rather than .desk-page — its h1 rule would beat this
+          page's own heading size on specificity. */}
+      <main className="mx-auto w-[min(1060px,100%)] px-10 py-14">
       <nav className="mb-6 border-b border-slate-200 pb-4 text-xs font-semibold text-slate-500">
         <Link href={`/review/${id}`} className="hover:text-slate-900 transition-colors">
           &larr; Back to Review Workspace
@@ -160,6 +165,7 @@ export default function AuditClient({ employee }: { employee: Employee }) {
           ))}
         </ol>
       )}
-    </main>
+      </main>
+    </div>
   );
 }

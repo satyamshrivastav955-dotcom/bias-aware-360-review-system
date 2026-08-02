@@ -7,22 +7,27 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 const links = [
   { href: "/", label: "Overview" },
+  { href: "/drafts", label: "Drafts" },
   { href: "/submissions", label: "Submissions" },
   { href: "/reviewers", label: "Reviewers" },
+  { href: "/audit-reports", label: "Audit reports" },
+  { href: "/evaluation", label: "Evaluation" },
   { href: "/governance", label: "Governance" },
 ];
 
-const deskLinks = [
-  { href: "/", label: "Dashboard" },
-  { href: "/drafts", label: "Pending drafts" },
-  { href: "/audit-reports", label: "Audit reports" },
-  { href: "/cycle-archive", label: "Cycle archive" },
-];
+// A review or audit page is a draft opened, so Drafts stays lit while you are
+// inside one — otherwise nothing in the bar marks where you are.
+const DRAFT_ROUTES = ["/drafts", "/review/", "/audit/"];
 
 export function AppHeader() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const active = (href: string) => pathname === href;
+  const active = (href: string) =>
+    href === "/drafts"
+      ? DRAFT_ROUTES.some((r) => pathname.startsWith(r))
+      : href === "/"
+        ? pathname === "/"
+        : pathname.startsWith(href);
 
   return (
     <header className="app-header">
@@ -39,28 +44,24 @@ export function AppHeader() {
         </nav>
         <div className="app-actions">
           <ThemeToggle />
-          <button className="icon-button desktop-only" aria-label="Notifications">●</button>
-          <button className="icon-button desktop-only" aria-label="Settings">⚙</button>
           <span className="avatar" aria-label="Manager profile">M</span>
           <button className={open ? "hamburger open" : "hamburger"} aria-label="Toggle navigation" aria-expanded={open} onClick={() => setOpen(!open)}>
             <span /><span /><span />
           </button>
         </div>
       </div>
-      <div className={open ? "mobile-drawer open" : "mobile-drawer"}>
+      {/* The stylesheet's 220px cap was sized for the old split drawer; seven
+          links need more room or the last two are unreachable on mobile. */}
+      <div className={open ? "mobile-drawer open" : "mobile-drawer"} style={open ? { maxHeight: "360px" } : undefined}>
         <nav aria-label="Mobile navigation">
-          <p className="drawer-label">Review desk</p>
-          {deskLinks.map((link) => (
-            <Link key={link.href} href={link.href} className={active(link.href) ? "mobile-nav-link active" : "mobile-nav-link"} onClick={() => setOpen(false)}>
-              {link.label}
-            </Link>
-          ))}
-          <p className="drawer-label drawer-divider">Explore</p>
           {links.map((link) => (
             <Link key={link.href} href={link.href} className={active(link.href) ? "mobile-nav-link active" : "mobile-nav-link"} onClick={() => setOpen(false)}>
               {link.label}
             </Link>
           ))}
+          <Link href="/cycle-archive" className={pathname.startsWith("/cycle-archive") ? "mobile-nav-link active" : "mobile-nav-link"} onClick={() => setOpen(false)}>
+            Cycle archive
+          </Link>
         </nav>
       </div>
       <button className={open ? "drawer-backdrop open" : "drawer-backdrop"} aria-label="Close navigation" onClick={() => setOpen(false)} />

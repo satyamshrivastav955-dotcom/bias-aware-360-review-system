@@ -20,7 +20,7 @@ export default function SubmissionsPage() {
     <section className="page-content">
       <div className="page-intro"><div><h1>Feedback on file</h1></div><div className="cycle-card"><span>▣</span><div><small>Entries</small><strong>{rows.length} across {employees.length}</strong></div></div></div>
       <p className="page-lede">Every entry a review can cite. Each carries the id the draft references, so a claim can always be traced back to the sentence it came from.</p>
-      <div className="submission-table"><div className="submission-head"><span>Source id</span><span>What was written</span><span>Author</span><span>About</span><span>Date</span></div>{rows.map((r) => <article className="submission-row" key={`${r.employeeId}-${r.id}`}><span className="font-mono text-[13px]">{r.id}</span><strong>{r.text}</strong><span>{r.reviewer}</span><span><Link href={`/review/${r.employeeId}`}>{r.employee}</Link></span><span><i className={`pill ${tone(r.kind)}`}>{r.date ?? KIND_LABEL[r.kind]}</i></span></article>)}</div>
+      <div><div className="submission-head"><span>Source id</span><span>What was written</span><span>Author</span><span>About</span><span>Date</span></div>{rows.map((r) => <article className="submission-row" key={`${r.employeeId}-${r.id}`}><span className="font-mono text-[13px]">{r.id}</span><strong>{r.text}</strong><span>{r.reviewer}</span><span><Link href={`/review/${r.employeeId}`}>{r.employee}</Link></span><span><i className={`pill ${tone(r.kind)}`}>{r.date ?? KIND_LABEL[r.kind]}</i></span></article>)}</div>
     </section>
   </main></div>;
 }

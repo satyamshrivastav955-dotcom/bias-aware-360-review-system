@@ -1,5 +1,5 @@
 import { parseBody, scopeToEmployee, unwrapN8n, webhookBase } from "@/lib/n8n";
-import type { ServerAuditEntry } from "@/lib/types";
+import { serverAuditEntriesSchema } from "@/lib/schemas";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +9,9 @@ export async function GET(req: Request) {
   const base = webhookBase();
   const params = new URL(req.url).searchParams;
   const employeeId = params.get("employee_id");
+  if (!employeeId) {
+    return Response.json({ error: "employee_id is required" }, { status: 400 });
+  }
   if (!base) return Response.json({ entries: [] });
 
   const reportId = params.get("report_id");
@@ -20,8 +23,12 @@ export async function GET(req: Request) {
     if (!res.ok || !Array.isArray(raw?.entries)) {
       return Response.json({ error: "audit_unavailable" }, { status: 502 });
     }
+    const entries = serverAuditEntriesSchema.safeParse(raw.entries);
+    if (!entries.success) {
+      return Response.json({ error: "audit_invalid" }, { status: 502 });
+    }
     return Response.json({
-      entries: scopeToEmployee(raw.entries as ServerAuditEntry[], employeeId),
+      entries: scopeToEmployee(entries.data, employeeId),
     });
   } catch {
     return Response.json({ error: "audit_unreachable" }, { status: 504 });

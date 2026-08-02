@@ -56,13 +56,23 @@ npm run dev
 
 With no webhook configured the app runs on the reports in `data/mock_reports/` — real responses captured from the live backend, not hand-written fixtures — so the full journey is demonstrable offline.
 
-## Tests
+## Agentic AI evaluation
 
-Plain `node:assert` scripts, no framework:
+`/evaluation` compares captured model outputs with manually adjudicated claim labels in `data/evaluation/benchmark.ts`. It reports flag precision, recall, F1, per-category performance, audit completeness, citation resolution, and the exact human/model disagreements. All benchmark records are synthetic. Version 1 contains 39 claims across three employees and is presented as a regression benchmark, not evidence of production fairness.
 
 ```bash
-npx tsx lib/stats.test.ts
-npx tsx lib/sources.test.ts
-npx tsx lib/n8n.test.ts
-npx tsc --noEmit
+npm run evaluation:report
+npm run test:evaluation
 ```
+
+## Tests
+
+The repository uses focused `node:assert` scripts plus shared package commands:
+
+```bash
+npm run typecheck
+npm test
+npm run verify
+```
+
+`npm test` covers source mapping, evidence statistics, n8n response handling and employee scoping, runtime schemas, cross-artifact contracts, and the captured evaluation benchmark.

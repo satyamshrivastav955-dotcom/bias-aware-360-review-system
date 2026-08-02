@@ -1,15 +1,10 @@
-// Schema v1.0 + the drift observed against the live n8n instance on 2026-08-01.
-
-// The bias agent is a prompt, not an enum — it can emit a type nobody wrote
-// down. `(string & {})` keeps autocomplete for the known five while letting an
-// unknown type through to FLAG_LABEL, which titlecases it rather than blanking.
+// Shared static types. Runtime boundaries are validated in lib/schemas.ts.
 export type FlagType =
   | "unsupported_claim"
   | "recency_bias"
   | "single_source_bias"
   | "vague_language"
-  | "contradiction"
-  | (string & {});
+  | "contradiction";
 
 export type Severity = "low" | "medium" | "high";
 
@@ -39,6 +34,9 @@ export type Report = {
   created_at: string; // live n8n omits this; the route stamps it on arrival
   name?: string;
   role?: string;
+  audit_status: "complete" | "incomplete";
+  audited_claims?: number;
+  stripped_uncited_count: number;
 };
 
 // A high-severity flag blocks approval until it is amended or acknowledged.

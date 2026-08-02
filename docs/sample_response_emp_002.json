@@ -6,7 +6,7 @@
   "strengths": [
     {
       "text": "Drove the dashboard redesign to a 42% page-load improvement and raised the Lighthouse accessibility score from 71 to 96, corroborated by peer feedback and project outcomes.",
-      "source_ids": ["peer_E_1", "project_1", "goal_1", "self_assessment"],
+      "source_ids": ["peer_E_1", "project_1", "goal_1", "self_1"],
       "flag": null
     },
     {
@@ -57,5 +57,10 @@
   ],
   "overall_bias_summary": "1 high-severity flag detected: the manager's negative assessment is unsupported, single-source, and contradicted by concrete peer feedback, goals, and project outcomes. All other points are well-evidenced. Recommend human review of the flagged growth-area claim before approval.",
   "flag_counts": { "unsupported_claim": 1 },
-  "status": "pending_approval"
+  "status": "pending_approval",
+  "reviewer": null,
+  "approved_at": null,
+  "audit_status": "complete",
+  "audited_claims": 8,
+  "stripped_uncited_count": 0
 }

@@ -1,13 +1,14 @@
-You are a bias auditor reviewing a synthesized performance report against its original source data. For EACH point in the report, evaluate it against these 4 categories:
+You are a bias auditor reviewing a synthesized performance report against its original source data. For EACH point in the report, evaluate it against these 5 categories:
 
 1. unsupported_claim — the point has no concrete evidence in the cited sources, OR the cited source doesn't actually support the claim, OR other sources (peers, goals, project outcomes) directly contradict it with concrete evidence.
 2. recency_bias — the point only reflects the most recent period and ignores earlier data that contradicts or adds context (compare "date" fields across sources).
 3. single_source_bias — the point rests on only one reviewer's input when other reviewers' input exists that could corroborate or contradict it, and no corroboration is cited.
 4. vague_language — the point lacks specific, concrete detail: no numbers, no named projects/examples, no measurable outcomes (e.g. "great team player", "doing well"). This INCLUDES positive praise: if a strength or growth point contains no concrete example, number, or named project anywhere in its cited sources, it MUST be flagged vague_language (severity low or medium). Generic goodwill is not evidence.
+5. contradiction — the point's substantive performance conclusion conflicts with objective goals, project outcomes, or multiple specific sources. Minor date/detail discrepancies about the same event are not contradictions.
 
 Rules:
 - Cross-reference against ALL original source data below, not just the cited source_ids — a point may have missed contradicting evidence elsewhere.
-- If a point matches multiple categories, choose the most serious one (unsupported_claim > recency_bias > single_source_bias > vague_language) and mention the others in "reasoning".
+- If a point matches multiple categories, choose the most serious one (contradiction > unsupported_claim > recency_bias > single_source_bias > vague_language) and mention the others in "reasoning".
 - "reasoning" must name the specific contradicting or missing evidence (cite source ids), not just restate the category definition.
 - severity: high = claim contradicted by concrete evidence or could materially harm the employee; medium = weakly supported or one-sided; low = stylistic vagueness with no material harm.
 - Be strict on negative claims about the employee; for positive points, flag them as vague_language whenever they lack any concrete specifics, even if positive (a well-evidenced positive point cited to one strong source is NOT automatically single_source_bias, but a purely generic compliment IS vague_language).
@@ -16,7 +17,7 @@ Rules:
 Output ONLY valid JSON, no markdown fences, no preamble, in this exact shape (same sections and same order of points as the input report; each point gets a "flag" that is either null or an object):
 {
   "strengths": [{"text": "string", "source_ids": ["..."], "flag": null}],
-  "growth_areas": [{"text": "string", "source_ids": ["..."], "flag": {"type": "unsupported_claim|recency_bias|single_source_bias|vague_language", "reasoning": "string", "severity": "low|medium|high"}}],
+  "growth_areas": [{"text": "string", "source_ids": ["..."], "flag": {"type": "unsupported_claim|recency_bias|single_source_bias|vague_language|contradiction", "reasoning": "string", "severity": "low|medium|high"}}],
   "impact_highlights": [],
   "goal_progress": [],
   "overall_bias_summary": "1-3 sentence plain-language summary of the audit result"
