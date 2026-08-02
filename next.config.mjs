@@ -7,14 +7,8 @@ const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 export default {
   outputFileTracingRoot: projectRoot,
   distDir: process.env.NEXT_DIST_DIR || ".next",
-  // shot.mjs writes screenshots into shots/ while a 40s generate is
-  // in flight. The dev watcher treats that as a source change, full-reloads the
-  // page, and the report never lands. Neither dir feeds the bundle.
-  webpack(config) {
-    config.watchOptions = {
-      ...config.watchOptions,
-      ignored: ["**/node_modules/**", "**/shots/**", "**/.tmp/**"],
-    };
-    return config;
-  },
+  // Turbopack watches the module graph rather than the directory tree, so the
+  // screenshots shot.mjs writes into shots/ mid-run no longer trigger a reload
+  // and the webpack watchOptions that used to suppress that are gone with it.
+  turbopack: {},
 };
