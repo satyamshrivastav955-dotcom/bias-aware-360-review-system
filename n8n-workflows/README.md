@@ -68,6 +68,7 @@ This feeds the demo's audit-trail screen.
 | `Supabase Postgres` | postgres | both Postgres nodes |
 | `Gemini Key Synthesis` | httpHeaderAuth | Synthesis Agent |
 | `Gemini Key Bias` | httpHeaderAuth | Bias Detection Agent |
+| `Gemini Key Spare 3` | httpHeaderAuth | Rotation spare (`scripts/rotate-key.sh`) |
 
 **Why two Gemini keys:** the free tier caps at 20 requests/min *per key per model*.
 One key shared across both agents made the second call fail with 429 under
